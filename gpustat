@@ -7,8 +7,9 @@ the gpustat script :)
 """
 
 from __future__ import print_function
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 from datetime import datetime
+import sys
 import locale
 
 
@@ -41,7 +42,7 @@ class GPUStatCollection(object):
         smi_output = check_output(
             r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader'.format(
                 query_cols=','.join(gpu_query_columns)
-            ), shell=True).strip()
+            ), shell=True).decode().strip()
 
         for line in smi_output.split('\n'):
             query_results = line.split(',')
@@ -74,7 +75,11 @@ def self_test():
 
 
 def main():
-    gpu_stats = GPUStatCollection.new_query()
+    try:
+        gpu_stats = GPUStatCollection.new_query()
+    except CalledProcessError:
+        sys.stderr.write('Error on calling nvidia-smi\n')
+        sys.exit(1)
 
     # header
     time_format = locale.nl_langinfo(locale.D_T_FMT)
