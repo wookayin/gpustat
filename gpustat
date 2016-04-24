@@ -22,8 +22,8 @@ class GPUStat(object):
 
     def __repr__(self):
         return ("[%(index)s] %(name)11s | " +
-                "%(temperature.gpu)2s'C, %(utilization.gpu)5s | " +
-                "Mem: %(memory.used)9s / %(memory.total)9s"
+                "%(temperature.gpu)2s'C, %(utilization.gpu)3s %% | " +
+                "Mem: %(memory.used)5s / %(memory.total)5s MB"
                 ) % (self.entry)
 
 
@@ -40,7 +40,7 @@ class GPUStatCollection(object):
         gpu_list = []
 
         smi_output = check_output(
-            r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader'.format(
+            r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader,nounits'.format(
                 query_cols=','.join(gpu_query_columns)
             ), shell=True).decode().strip()
 
