@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+
+"""
+the gpustat script :)
+
+@author Jongwook Choi
+"""
+
+from __future__ import print_function
+from subprocess import check_output
+from datetime import datetime
+import locale
+
+
+class GPUStat(object):
+
+    def __init__(self, entry):
+        if not isinstance(entry, dict):
+            raise TypeError('entry should be a dict, {} given'.format(type(entry)))
+        self.entry = entry
+
+    def __repr__(self):
+        return ("[%(index)s] %(name)11s | " +
+                "%(temperature.gpu)2s'C, %(utilization.gpu)5s | " +
+                "Mem: %(memory.used)9s / %(memory.total)9s"
+                ) % (self.entry)
+
+
+class GPUStatCollection(object):
+
+    def __init__(self, gpu_list):
+        self.gpu_list = gpu_list
+
+    @staticmethod
+    def new_query():
+        # 1. get the list of gpu and status
+        gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
+                             'utilization.gpu', 'memory.used', 'memory.total')
+        gpu_list = []
+
+        smi_output = check_output(
+            r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader'.format(
+                query_cols=','.join(gpu_query_columns)
+            ), shell=True).strip()
+
+        for line in smi_output.split('\n'):
+            query_results = line.split(',')
+
+            g = GPUStat({col_name: col_value.strip() for
+                         (col_name, col_value) in zip(gpu_query_columns, query_results)
+                         })
+            gpu_list.append(g)
+
+        return GPUStatCollection(gpu_list)
+
+    def __repr__(self):
+        s = 'GPUStatCollection([\n'
+        s += '\n'.join('  ' + str(g) for g in self.gpu_list)
+        s += '\n])'
+        return s
+
+    def __len__(self):
+        return len(self.gpu_list)
+
+    def __iter__(self):
+        return iter(self.gpu_list)
+
+
+def self_test():
+    gpu_stats = GPUStatCollection.new_query()
+    print('# of GPUS:', len(gpu_stats))
+    for g in gpu_stats:
+        print(g)
+
+
+def main():
+    gpu_stats = GPUStatCollection.new_query()
+
+    # header
+    time_format = locale.nl_langinfo(locale.D_T_FMT)
+    print(datetime.now().strftime(time_format))
+
+    # body
+    for g in gpu_stats:
+        print(g)
+
+if __name__ == '__main__':
+    main()
