@@ -134,7 +134,7 @@ class GPUStatCollection(object):
         return len(self.gpus)
 
     def __iter__(self):
-        return self.gpus.itervalues()
+        return iter(self.gpus.values())
 
 
 def self_test():
