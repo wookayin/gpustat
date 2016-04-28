@@ -10,6 +10,10 @@ from __future__ import print_function
 from subprocess import check_output, CalledProcessError
 from datetime import datetime
 from collections import OrderedDict
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 import sys
 import locale
 
@@ -23,15 +27,26 @@ class GPUStat(object):
         self.processes = []
 
     def __repr__(self):
+        return self.print_to(StringIO()).getvalue()
+
+    def print_to(self, fp, show_user=False, show_pid=False):
         reps = ("[%(index)s] %(name)11s | " +
                 "%(temperature.gpu)2s'C, %(utilization.gpu)3s %% | " +
                 "Mem: %(memory.used)5s / %(memory.total)5s MB"
                 ) % (self.entry)
-        reps += " | " + (" ".join(
-            '%s(%sM)' % (p['comm'], p['used_memory'])
-            for p in self.processes
-        ))
-        return reps
+        reps += " |"
+
+        def process_repr(p):
+            r = show_user and p['user'] or p['comm']
+            if show_pid: r += ("/%s" % p['pid'])
+            r += '(%sM)' % (p['used_memory'])
+            return r
+
+        for p in self.processes:
+            reps += ' ' + process_repr(p)
+
+        fp.write(reps)
+        return fp
 
     @property
     def uuid(self):
@@ -150,7 +165,7 @@ def self_test():
     print('-------------')
 
 
-def main():
+def main(args):
     # self_test()
     try:
         gpu_stats = GPUStatCollection.new_query()
@@ -165,7 +180,18 @@ def main():
 
     # body
     for g in gpu_stats:
-        print(g)
+        g.print_to(sys.stdout,
+                   show_user=args.show_user,
+                   show_pid=args.show_pid)
+        sys.stdout.write('\n')
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--show-user', action='store_true',
+                        help='Display username of running process')
+    parser.add_argument('--show-pid', action='store_true',
+                        help='Display PID of running process')
+    args = parser.parse_args()
+
+    main(args)
