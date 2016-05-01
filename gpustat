@@ -18,6 +18,25 @@ import sys
 import locale
 
 
+class ANSIColors:
+    RESET   = '\033[0m'
+    WHITE   = '\033[1m'
+    RED     = '\033[0;31m'
+    GREEN   = '\033[0;32m'
+    YELLOW  = '\033[0;33m'
+    BLUE    = '\033[0;34m'
+    MAGENTA = '\033[0;34m'
+    CYAN    = '\033[0;36m'
+    GRAY        = '\033[1;30m'
+    BOLD_RED    = '\033[1;31m'
+    BOLD_GREEN  = '\033[1;32m'
+    BOLD_YELLOW = '\033[1;33m'
+
+    @staticmethod
+    def wrap(color, msg):
+        return (color + msg + ANSIColors.RESET)
+
+
 class GPUStat(object):
 
     def __init__(self, entry):
@@ -29,17 +48,45 @@ class GPUStat(object):
     def __repr__(self):
         return self.print_to(StringIO()).getvalue()
 
-    def print_to(self, fp, show_user=False, show_pid=False):
-        reps = ("[%(index)s] %(name)11s | " +
-                "%(temperature.gpu)2s'C, %(utilization.gpu)3s %% | " +
-                "Mem: %(memory.used)5s / %(memory.total)5s MB"
-                ) % (self.entry)
+    def print_to(self, fp,
+                 with_colors=True,
+                 show_user=False, show_pid=False
+                 ):
+        # color settings
+        colors = {}
+        colors['C0'] = ANSIColors.RESET
+        colors['C1'] = ANSIColors.CYAN
+        colors['CName'] = ANSIColors.BLUE
+        colors['CTemp'] = ANSIColors.RED \
+                            if int(self.entry['temperature.gpu']) < 50 \
+                            else ANSIColors.BOLD_RED
+        colors['CMemU'] = ANSIColors.BOLD_YELLOW
+        colors['CMemT'] = ANSIColors.YELLOW
+        colors['CMemP'] = ANSIColors.YELLOW
+        colors['CUser'] = ANSIColors.GRAY
+        colors['CUtil'] = ANSIColors.GREEN \
+                            if int(self.entry['utilization.gpu']) < 30 \
+                            else ANSIColors.BOLD_GREEN
+
+        if not with_colors:
+            for k in list(colors.keys()):
+                colors[k] = ''
+
+        # build one-line display information
+        reps = ("{C1}[%(index)s]{C0} {CName}%(name)11s{C0} | " +
+                "{CTemp}%(temperature.gpu)2s'C{C0}, {CUtil}%(utilization.gpu)3s %%{C0} | " +
+                "{C1}{CMemU}%(memory.used)5s{C0} / {CMemT}%(memory.total)5s{C0} MB"
+                ).format(**colors) % (self.entry)
         reps += " |"
 
         def process_repr(p):
-            r = show_user and p['user'] or p['comm']
+            if show_user:
+                r = "{CUser}{}{C0}".format(p['user'], **colors)
+            else:
+                r = "{C1}{}{C0}".format(p['comm'], **colors)
+
             if show_pid: r += ("/%s" % p['pid'])
-            r += '(%sM)' % (p['used_memory'])
+            r += '({CMemP}{}M{C0})'.format(p['used_memory'], **colors)
             return r
 
         for p in self.processes:
@@ -181,6 +228,7 @@ def main(args):
     # body
     for g in gpu_stats:
         g.print_to(sys.stdout,
+                   with_colors=not args.no_color,
                    show_user=args.show_user,
                    show_pid=args.show_pid)
         sys.stdout.write('\n')
@@ -188,6 +236,8 @@ def main(args):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('--no-color', action='store_true',
+                        help='Suppress colored output')
     parser.add_argument('--show-user', action='store_true',
                         help='Display username of running process')
     parser.add_argument('--show-pid', action='store_true',
