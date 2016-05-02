@@ -238,9 +238,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-color', action='store_true',
                         help='Suppress colored output')
-    parser.add_argument('--show-user', action='store_true',
+    parser.add_argument('-u', '--show-user', action='store_true',
                         help='Display username of running process')
-    parser.add_argument('--show-pid', action='store_true',
+    parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
     args = parser.parse_args()
 
