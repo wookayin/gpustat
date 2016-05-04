@@ -83,7 +83,7 @@ class GPUStat(object):
             if show_user:
                 r = "{CUser}{}{C0}".format(p['user'], **colors)
             else:
-                r = "{C1}{}{C0}".format(p['comm'], **colors)
+                r = "{C1}{}{C0}".format(p.get('comm', p['pid']), **colors)
 
             if show_pid: r += ("/%s" % p['pid'])
             r += '({CMemP}{}M{C0})'.format(p['used_memory'], **colors)
@@ -162,7 +162,7 @@ class GPUStatCollection(object):
             ), shell=True).decode().strip()
             for line in pid_output.split('\n'):
                 if (not line) or 'PID' in line: continue
-                pid, user, comm = line.split()
+                pid, user, comm = line.split()[:3]
                 pid_map[int(pid)] = {
                     'user' : user,
                     'comm' : comm
