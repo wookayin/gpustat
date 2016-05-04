@@ -16,17 +16,25 @@ A possible output:
 [2] GeForce GTX TITAN X | 38'C,   0 % |    23 / 12287 MB |
 ```
 
+Options:
+
+* `--no-color`        : Suppress color (by default, color is enabled)
+* `-u`, `--show-user` : Display username of process owner
+* `-p`, `--show-pid`  : Display PID of proces)
+
+
 Quick Installation
 ------------------
 
 Just download [the script][script_gitio] into somewhere in `PATH`, e.g. `~/.local/bin/`:
 
 ```
-sudo curl https://git.io/gpustat -O /usr/local/bin/gpustat
+sudo wget https://git.io/gpustat -O /usr/local/bin/gpustat
 sudo chmod +x /usr/local/bin/gpustat
 ```
 
 [script_gitio]: https://git.io/gpustat
+
 
 Status and TODOs
 ----------------
