@@ -8,7 +8,7 @@ Usage
 
 `$ gpustat`
 
-A possible output:
+A possible output for `$ gpustat -c`:
 
 ```
 [0] GeForce GTX TITAN X | 71'C,  39 % | 11721 / 12287 MB | python(11696M)
@@ -20,6 +20,7 @@ Options:
 
 * `--no-color`        : Suppress color (by default, color is enabled)
 * `-u`, `--show-user` : Display username of process owner
+* `-c`, `--show-cmd`  : Display username of process owner
 * `-p`, `--show-pid`  : Display PID of proces)
 
 
@@ -44,5 +45,5 @@ This script is currently in infancy, so please be patient or give me a PR :-)
 * [x] the list of Nvidia GPUs, along with temperature/utilization/memory statistics
 * [x] the list of running processes: PIDs, memory usage, and process name/owner
 * [x] basic ANSI color support
-* [ ] more configurable options
+* [x] more configurable options
 * [ ] sensible installation guide

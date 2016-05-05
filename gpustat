@@ -50,7 +50,9 @@ class GPUStat(object):
 
     def print_to(self, fp,
                  with_colors=True,
-                 show_user=False, show_pid=False
+                 show_cmd=False,
+                 show_user=False,
+                 show_pid=False
                  ):
         # color settings
         colors = {}
@@ -80,10 +82,12 @@ class GPUStat(object):
         reps += " |"
 
         def process_repr(p):
-            if show_user:
-                r = "{CUser}{}{C0}".format(p['user'], **colors)
-            else:
-                r = "{C1}{}{C0}".format(p.get('comm', p['pid']), **colors)
+            r = ''
+            if not show_cmd or show_user:
+                r += "{CUser}{}{C0}".format(p['user'], **colors)
+            if show_cmd:
+                if r: r += ':'
+                r += "{C1}{}{C0}".format(p.get('comm', p['pid']), **colors)
 
             if show_pid: r += ("/%s" % p['pid'])
             r += '({CMemP}{}M{C0})'.format(p['used_memory'], **colors)
@@ -229,6 +233,7 @@ def main(args):
     for g in gpu_stats:
         g.print_to(sys.stdout,
                    with_colors=not args.no_color,
+                   show_cmd=args.show_cmd,
                    show_user=args.show_user,
                    show_pid=args.show_pid)
         sys.stdout.write('\n')
@@ -238,6 +243,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-color', action='store_true',
                         help='Suppress colored output')
+    parser.add_argument('-c', '--show-cmd', action='store_true',
+                        help='Display cmd name of running process')
     parser.add_argument('-u', '--show-user', action='store_true',
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
