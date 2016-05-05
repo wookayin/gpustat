@@ -9,13 +9,14 @@ the gpustat script :)
 from __future__ import print_function
 from subprocess import check_output, CalledProcessError
 from datetime import datetime
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 try:
     from cStringIO import StringIO
 except ImportError:
     from io import StringIO
 import sys
 import locale
+import platform
 
 
 class ANSIColors:
@@ -25,7 +26,7 @@ class ANSIColors:
     GREEN   = '\033[0;32m'
     YELLOW  = '\033[0;33m'
     BLUE    = '\033[0;34m'
-    MAGENTA = '\033[0;34m'
+    MAGENTA = '\033[0;35m'
     CYAN    = '\033[0;36m'
     GRAY        = '\033[1;30m'
     BOLD_RED    = '\033[1;31m'
@@ -227,7 +228,12 @@ def main(args):
 
     # header
     time_format = locale.nl_langinfo(locale.D_T_FMT)
-    print(datetime.now().strftime(time_format))
+    header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
+        'hostname' : platform.node(),
+        'timestr' : datetime.now().strftime(time_format),
+    }) % (defaultdict(str) if args.no_color else ANSIColors.__dict__)
+
+    print(header_msg)
 
     # body
     for g in gpu_stats:
