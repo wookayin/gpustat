@@ -3,6 +3,8 @@
 
 Just *less* than nvidia-smi?
 
+![Screenshot](screenshot.png)
+
 Usage
 -----
 
