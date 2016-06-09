@@ -3,7 +3,7 @@
 
 Just *less* than nvidia-smi?
 
-![Screenshot](screenshot.png)
+![Screenshot: gpustat -cp](screenshot.png)
 
 Usage
 -----
@@ -13,14 +13,14 @@ Usage
 Options:
 
 * `--no-color`        : Suppress color (by default, color is enabled)
-* `-u`, `--show-user` : Display username of process owner
-* `-c`, `--show-cmd`  : Display username of process owner
-* `-p`, `--show-pid`  : Display PID of process
+* `-u`, `--show-user` : Display username of the process owner
+* `-c`, `--show-cmd`  : Display the process name
+* `-p`, `--show-pid`  : Display PID of the process
 
 ### Tips
 
 - To periodically watch, try `watch --color -n1.0 gpustat` (built-in watch support will be added soon).
-- Running `nvidia-smi daemon` (root privilege required) would make the query much faster.
+- Running `nvidia-smi daemon` (root privilege required) will make the query much faster.
 
 
 Quick Installation
