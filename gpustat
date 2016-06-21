@@ -174,8 +174,14 @@ class GPUStatCollection(object):
                 }
 
         # 3. add some process information to each process_entry
-        for process_entry in process_entries:
+        for process_entry in process_entries[:]:
             pid = int(process_entry['pid'])
+            if pid_map[pid] is None:
+                # !?!? this pid is listed up in nvidia-smi's query result,
+                # but actually seems not to be a valid running process. ignore!
+                process_entries.remove(process_entry)
+                continue
+
             process_entry.update(pid_map[pid])
 
         return process_entries
