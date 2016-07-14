@@ -29,8 +29,7 @@ Quick Installation
 Just download [the script][script_gitio] into somewhere in `PATH`, e.g. `~/.local/bin/`:
 
 ```
-sudo wget https://git.io/gpustat -O /usr/local/bin/gpustat
-sudo chmod +x /usr/local/bin/gpustat
+sudo wget https://git.io/gpustat -O /usr/local/bin/gpustat && sudo chmod +x /usr/local/bin/gpustat
 ```
 
 [script_gitio]: https://git.io/gpustat
