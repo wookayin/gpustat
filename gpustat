@@ -53,7 +53,8 @@ class GPUStat(object):
                  with_colors=True,
                  show_cmd=False,
                  show_user=False,
-                 show_pid=False
+                 show_pid=False,
+                 gpuname_width=16
                  ):
         # color settings
         colors = {}
@@ -81,7 +82,7 @@ class GPUStat(object):
                 "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
                 ) % colors
         reps = reps.format(entry=self.entry,
-                           gpuname_width=11)
+                           gpuname_width=gpuname_width)
         reps += " |"
 
         def process_repr(p):
@@ -244,12 +245,14 @@ def main(args):
     print(header_msg)
 
     # body
+    gpuname_width = max([16] + [len(g.entry['name']) for g in gpu_stats])
     for g in gpu_stats:
         g.print_to(sys.stdout,
                    with_colors=not args.no_color,
                    show_cmd=args.show_cmd,
                    show_user=args.show_user,
-                   show_pid=args.show_pid)
+                   show_pid=args.show_pid,
+                   gpuname_width=gpuname_width)
         sys.stdout.write('\n')
 
 if __name__ == '__main__':
