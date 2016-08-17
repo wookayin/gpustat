@@ -202,7 +202,7 @@ class GPUStatCollection(object):
 
     def __repr__(self):
         s = 'GPUStatCollection([\n'
-        s += '\n'.join('  ' + str(g) for g in self.gpu_list)
+        s += '\n'.join('  ' + str(g) for g in self.gpus)
         s += '\n])'
         return s
 
@@ -211,6 +211,9 @@ class GPUStatCollection(object):
 
     def __iter__(self):
         return iter(self.gpus.values())
+
+    def __getitem__(self, index):
+        return list(self.gpus.values())[index]
 
 
 def self_test():
@@ -226,8 +229,11 @@ def self_test():
     print('-------------')
 
 
-def main(args):
-    # self_test()
+def print_gpustat(no_color=False,
+                  show_cmd=False,
+                  show_user=False,
+                  show_pid=False,
+                  ):
     try:
         gpu_stats = GPUStatCollection.new_query()
         gpu_stats.update_process_information()
@@ -240,7 +246,7 @@ def main(args):
     header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
         'hostname' : platform.node(),
         'timestr' : datetime.now().strftime(time_format),
-    }) % (defaultdict(str) if args.no_color else ANSIColors.__dict__)
+    }) % (defaultdict(str) if no_color else ANSIColors.__dict__)
 
     print(header_msg)
 
@@ -248,14 +254,15 @@ def main(args):
     gpuname_width = max([16] + [len(g.entry['name']) for g in gpu_stats])
     for g in gpu_stats:
         g.print_to(sys.stdout,
-                   with_colors=not args.no_color,
-                   show_cmd=args.show_cmd,
-                   show_user=args.show_user,
-                   show_pid=args.show_pid,
+                   with_colors=not no_color,
+                   show_cmd=show_cmd,
+                   show_user=show_user,
+                   show_pid=show_pid,
                    gpuname_width=gpuname_width)
         sys.stdout.write('\n')
 
-if __name__ == '__main__':
+
+def main():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-color', action='store_true',
@@ -268,4 +275,7 @@ if __name__ == '__main__':
                         help='Display PID of running process')
     args = parser.parse_args()
 
-    main(args)
+    print_gpustat(**vars(args))
+
+if __name__ == '__main__':
+    main()
