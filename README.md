@@ -26,22 +26,17 @@ Options:
 Quick Installation
 ------------------
 
-Just download [the script][script_gitio] into somewhere in `PATH`, e.g. `~/.local/bin/`:
+Install from PyPI:
 
 ```
-sudo wget https://git.io/gpustat -O /usr/local/bin/gpustat && sudo chmod +x /usr/local/bin/gpustat
+sudo pip install gpustat
 ```
 
-[script_gitio]: https://git.io/gpustat
+Alternatively, you can just download [gpustat.py][script_gitio] into somewhere in `PATH`, e.g. `~/.local/bin/`
+(when you do not have root privilege, for example):
 
+```
+sudo wget https://git.io/gpustat.py -O /usr/local/bin/gpustat && sudo chmod +x /usr/local/bin/gpustat
+```
 
-Status and TODOs
-----------------
-
-This script is currently in infancy, so please be patient or give me a PR :-)
-
-* [x] the list of Nvidia GPUs, along with temperature/utilization/memory statistics
-* [x] the list of running processes: PIDs, memory usage, and process name/owner
-* [x] basic ANSI color support
-* [x] more configurable options
-* [ ] sensible installation guide
+[script_gitio]: https://git.io/gpustat.py
