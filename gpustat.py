@@ -19,6 +19,8 @@ import sys
 import locale
 import platform
 
+__version__ = '0.1'
+
 
 class ANSIColors:
     RESET   = '\033[0m'
