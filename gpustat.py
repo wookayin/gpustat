@@ -4,6 +4,7 @@
 the gpustat script :)
 
 @author Jongwook Choi
+@url https://github.com/wookayin/gpustat
 """
 
 from __future__ import print_function
