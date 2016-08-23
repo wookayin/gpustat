@@ -276,6 +276,8 @@ def main():
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
+    parser.add_argument('-v', '--version', action='version',
+                        version=__version__)
     args = parser.parse_args()
 
     print_gpustat(**vars(args))
