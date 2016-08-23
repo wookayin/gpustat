@@ -19,7 +19,7 @@ import sys
 import locale
 import platform
 
-__version__ = '0.1.1.dev'
+__version__ = '0.1.1'
 
 
 class ANSIColors:
