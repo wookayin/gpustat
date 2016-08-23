@@ -33,6 +33,6 @@ setup(
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],
     },
-    include_package_data=False,
+    include_package_data=True,
     zip_safe=False,
 )
