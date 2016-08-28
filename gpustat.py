@@ -122,6 +122,8 @@ class GPUStatCollection(object):
         for g in gpu_list:
             self.gpus[g.uuid] = g
 
+        self.update_process_information()
+
     @staticmethod
     def new_query():
         # 1. get the list of gpu and status
@@ -232,14 +234,24 @@ def self_test():
     print('-------------')
 
 
+def new_query():
+    '''
+    Obtain a new GPUStatCollection instance by querying nvidia-smi
+    to get the list of GPUs and running process information.
+    '''
+    return GPUStatCollection.new_query()
+
+
 def print_gpustat(no_color=False,
                   show_cmd=False,
                   show_user=False,
                   show_pid=False,
                   ):
+    '''
+    Display the GPU query results into standard output.
+    '''
     try:
         gpu_stats = GPUStatCollection.new_query()
-        gpu_stats.update_process_information()
     except CalledProcessError:
         sys.stderr.write('Error on calling nvidia-smi\n')
         sys.exit(1)
