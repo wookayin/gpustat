@@ -122,7 +122,12 @@ class GPUStatCollection(object):
         for g in gpu_list:
             self.gpus[g.uuid] = g
 
+        # attach process information (owner, pid, etc.)
         self.update_process_information()
+
+        # attach additional system information
+        self.hostname = platform.node()
+        self.query_time = datetime.now()
 
     @staticmethod
     def new_query():
@@ -206,7 +211,7 @@ class GPUStatCollection(object):
         return self
 
     def __repr__(self):
-        s = 'GPUStatCollection([\n'
+        s = 'GPUStatCollection(host=%s, [\n' % self.hostname
         s += '\n'.join('  ' + str(g) for g in self.gpus)
         s += '\n])'
         return s
@@ -219,6 +224,33 @@ class GPUStatCollection(object):
 
     def __getitem__(self, index):
         return list(self.gpus.values())[index]
+
+
+    def print_formatted(self, fp=sys.stdout, no_color=False,
+                        show_cmd=False, show_user=False, show_pid=False,
+                        ):
+        # header
+        time_format = locale.nl_langinfo(locale.D_T_FMT)
+        header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
+            'hostname' : self.hostname,
+            'timestr' : self.query_time.strftime(time_format)
+
+        }) % (defaultdict(str) if no_color else ANSIColors.__dict__)
+
+        print(header_msg)
+
+        # body
+        gpuname_width = max([16] + [len(g.entry['name']) for g in self])
+        for g in self:
+            g.print_to(fp,
+                       with_colors=not no_color,
+                       show_cmd=show_cmd,
+                       show_user=show_user,
+                       show_pid=show_pid,
+                       gpuname_width=gpuname_width)
+            fp.write('\n')
+
+        fp.flush()
 
 
 def self_test():
@@ -256,25 +288,12 @@ def print_gpustat(no_color=False,
         sys.stderr.write('Error on calling nvidia-smi\n')
         sys.exit(1)
 
-    # header
-    time_format = locale.nl_langinfo(locale.D_T_FMT)
-    header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
-        'hostname' : platform.node(),
-        'timestr' : datetime.now().strftime(time_format),
-    }) % (defaultdict(str) if no_color else ANSIColors.__dict__)
-
-    print(header_msg)
-
-    # body
-    gpuname_width = max([16] + [len(g.entry['name']) for g in gpu_stats])
-    for g in gpu_stats:
-        g.print_to(sys.stdout,
-                   with_colors=not no_color,
-                   show_cmd=show_cmd,
-                   show_user=show_user,
-                   show_pid=show_pid,
-                   gpuname_width=gpuname_width)
-        sys.stdout.write('\n')
+    gpu_stats.print_formatted(sys.stdout,
+                              no_color=no_color,
+                              show_cmd=show_cmd,
+                              show_user=show_user,
+                              show_pid=show_pid,
+                              )
 
 
 def main():
