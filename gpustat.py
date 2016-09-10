@@ -18,6 +18,7 @@ except ImportError:
 import sys
 import locale
 import platform
+import json
 
 __version__ = '0.3.0.dev'
 
@@ -191,6 +192,16 @@ class GPUStat(object):
         fp.write(reps)
         return fp
 
+    @property
+    def uuid(self):
+        return self.entry['uuid']
+
+    def jsonify(self):
+        o = dict(self.entry)
+        o['processes'] = [{k: v for (k, v) in p.iteritems() if k != 'gpu_uuid'}
+                          for p in self.processes]
+        return o
+
     def add_process(self, p):
         self.processes.append(p)
         return self
@@ -304,12 +315,6 @@ class GPUStatCollection(object):
             g.add_process(p)
         return self
 
-    def __repr__(self):
-        s = 'GPUStatCollection(host=%s, [\n' % self.hostname
-        s += '\n'.join('  ' + str(g) for g in self.gpus)
-        s += '\n])'
-        return s
-
     def __len__(self):
         return len(self.gpus)
 
@@ -319,6 +324,13 @@ class GPUStatCollection(object):
     def __getitem__(self, index):
         return list(self.gpus.values())[index]
 
+    def __repr__(self):
+        s = 'GPUStatCollection(host=%s, [\n' % self.hostname
+        s += '\n'.join('  ' + str(g) for g in self.gpus)
+        s += '\n])'
+        return s
+
+    # --- Printing Functions ---
 
     def print_formatted(self, fp=sys.stdout, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
@@ -345,6 +357,26 @@ class GPUStatCollection(object):
                        gpuname_width=gpuname_width)
             fp.write('\n')
 
+        fp.flush()
+
+    def jsonify(self):
+        return {
+            'hostname' : self.hostname,
+            'query_time' : self.query_time,
+            "gpus" : [g.jsonify() for g in self]
+        }
+
+    def print_json(self, fp=sys.stdout):
+        def date_handler(obj):
+            if hasattr(obj, 'isoformat'):
+                return obj.isoformat()
+            else:
+                raise TypeError
+
+        o = self.jsonify()
+        json.dump(o, fp, indent=4, separators=(',', ': '),
+                  default=date_handler)
+        fp.write('\n')
         fp.flush()
 
 
@@ -379,7 +411,10 @@ def print_gpustat(**args):
         sys.stderr.write('Error on calling nvidia-smi\n')
         sys.exit(1)
 
-    gpu_stats.print_formatted(sys.stdout, **args)
+    if json:
+        gpu_stats.print_json(sys.stdout)
+    else:
+        gpu_stats.print_formatted(sys.stdout, **args)
 
 
 def main():
@@ -395,6 +430,8 @@ def main():
                         help='Display PID of running process')
     parser.add_argument('--gpuname-width', type=int, default=16,
                         help='The minimum column width of GPU names, defaults to 16')
+    parser.add_argument('--json', action='store_true',
+                        help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
     args = parser.parse_args()
