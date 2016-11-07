@@ -49,6 +49,15 @@ class GPUStat(object):
         self.entry = entry
         self.processes = []
 
+        # Handle '[Not Supported] for old GPU cards (#6)
+        for k in self.entry.keys():
+            if 'Not Supported' in self.entry[k]:
+                self.entry[k] = None
+
+        if self.entry['utilization.gpu'] is None:
+            self.entry['utilization.gpu'] = '??'
+
+
     def __repr__(self):
         return self.print_to(StringIO()).getvalue()
 
@@ -61,19 +70,25 @@ class GPUStat(object):
                  ):
         # color settings
         colors = {}
+        def _conditional(cond_fn, true_value, false_value,
+                         error_value=ANSIColors.GRAY):
+            try:
+                if cond_fn(): return true_value
+                else: return false_value
+            except:
+                return error_value
+
         colors['C0'] = ANSIColors.RESET
         colors['C1'] = ANSIColors.CYAN
         colors['CName'] = ANSIColors.BLUE
-        colors['CTemp'] = ANSIColors.RED \
-                            if int(self.entry['temperature.gpu']) < 50 \
-                            else ANSIColors.BOLD_RED
+        colors['CTemp'] = _conditional(lambda: int(self.entry['temperature.gpu']) < 50,
+                                       ANSIColors.RED, ANSIColors.BOLD_RED)
         colors['CMemU'] = ANSIColors.BOLD_YELLOW
         colors['CMemT'] = ANSIColors.YELLOW
         colors['CMemP'] = ANSIColors.YELLOW
         colors['CUser'] = ANSIColors.GRAY
-        colors['CUtil'] = ANSIColors.GREEN \
-                            if int(self.entry['utilization.gpu']) < 30 \
-                            else ANSIColors.BOLD_GREEN
+        colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
+                                       ANSIColors.GREEN, ANSIColors.BOLD_GREEN)
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -88,16 +103,21 @@ class GPUStat(object):
                            gpuname_width=gpuname_width)
         reps += " |"
 
+        def _repr(v, none_value='???'):
+            if v is None: return none_value
+            else: return str(v)
+
         def process_repr(p):
             r = ''
             if not show_cmd or show_user:
-                r += "{CUser}{}{C0}".format(p['user'], **colors)
+                r += "{CUser}{}{C0}".format(_repr(p['user'], '--'), **colors)
             if show_cmd:
                 if r: r += ':'
-                r += "{C1}{}{C0}".format(p.get('comm', p['pid']), **colors)
+                r += "{C1}{}{C0}".format(_repr(p.get('comm', p['pid']), '--'), **colors)
 
-            if show_pid: r += ("/%s" % p['pid'])
-            r += '({CMemP}{}M{C0})'.format(p['used_memory'], **colors)
+            if show_pid:
+                r += ("/%s" % _repr(p['pid'], '--'))
+            r += '({CMemP}{}M{C0})'.format(_repr(p['used_memory'], '?'), **colors)
             return r
 
         for p in self.processes:
@@ -170,7 +190,8 @@ class GPUStatCollection(object):
                                   })
             process_entries.append(process_entry)
 
-        pid_map = {int(e['pid']) : None for e in process_entries}
+        pid_map = {int(e['pid']) : None for e in process_entries
+                   if not 'Not Supported' in e['pid']}
 
         # 2. map pid to username, etc.
         if pid_map:
@@ -188,7 +209,19 @@ class GPUStatCollection(object):
 
         # 3. add some process information to each process_entry
         for process_entry in process_entries[:]:
+
+            if 'Not Supported' in process_entry['pid']:
+                # TODO move this stuff into somewhere appropriate
+                # such as running_processes(): process_entry = ...
+                # or introduce Process class to elegantly handle it
+                process_entry['user'] = None
+                process_entry['comm'] = None
+                process_entry['pid'] = None
+                process_entry['used_memory'] = None
+                continue
+
             pid = int(process_entry['pid'])
+
             if pid_map[pid] is None:
                 # !?!? this pid is listed up in nvidia-smi's query result,
                 # but actually seems not to be a valid running process. ignore!
