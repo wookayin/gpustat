@@ -196,7 +196,7 @@ class GPUStatCollection(object):
         # 2. map pid to username, etc.
         if pid_map:
             pid_output = check_output('ps -o {} -p {}'.format(
-                'pid,user,comm',
+                'pid,user:16,comm',
                 ','.join(map(str, pid_map.keys()))
             ), shell=True).decode().strip()
             for line in pid_output.split('\n'):
