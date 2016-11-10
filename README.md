@@ -34,6 +34,12 @@ Install from [PyPI][pypi_gpustat]:
 sudo pip install gpustat
 ```
 
+To install the latest version (master branch) via pip:
+
+```
+pip install git+https://github.com/wookayin/gpustat.git@master
+```
+
 Alternatively, you can just download an *unstable* version of [gpustat.py][script_gitio] (or any [stable version][script_stable]) into somewhere in `PATH`, e.g. `~/.local/bin/`
 (when you do not have root privilege, for example):
 
