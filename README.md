@@ -2,6 +2,7 @@
 =========
 
 [![pypi](https://img.shields.io/pypi/v/gpustat.svg?maxAge=86400)][pypi_gpustat]
+![license](https://img.shields.io/github/license/wookayin/gpustat.svg?maxAge=86400)
 
 Just *less* than nvidia-smi?
 
@@ -50,3 +51,9 @@ sudo wget https://git.io/gpustat.py -O /usr/local/bin/gpustat && sudo chmod +x /
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
 [script_gitio]: https://git.io/gpustat.py
 [script_stable]: https://raw.githubusercontent.com/wookayin/gpustat/v0.1.1/gpustat.py
+
+
+License
+-------
+
+[MIT License](LICENSE)
