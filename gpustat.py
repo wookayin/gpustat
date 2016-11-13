@@ -261,6 +261,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
+                        gpuname_width=16,
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
@@ -273,7 +274,7 @@ class GPUStatCollection(object):
         print(header_msg)
 
         # body
-        gpuname_width = max([16] + [len(g.entry['name']) for g in self])
+        gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
         for g in self:
             g.print_to(fp,
                        with_colors=not no_color,
@@ -307,11 +308,7 @@ def new_query():
     return GPUStatCollection.new_query()
 
 
-def print_gpustat(no_color=False,
-                  show_cmd=False,
-                  show_user=False,
-                  show_pid=False,
-                  ):
+def print_gpustat(**args):
     '''
     Display the GPU query results into standard output.
     '''
@@ -321,12 +318,7 @@ def print_gpustat(no_color=False,
         sys.stderr.write('Error on calling nvidia-smi\n')
         sys.exit(1)
 
-    gpu_stats.print_formatted(sys.stdout,
-                              no_color=no_color,
-                              show_cmd=show_cmd,
-                              show_user=show_user,
-                              show_pid=show_pid,
-                              )
+    gpu_stats.print_formatted(sys.stdout, **args)
 
 
 def main():
@@ -340,6 +332,8 @@ def main():
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
+    parser.add_argument('--gpuname-width', type=int, default=16,
+                        help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('-v', '--version', action='version',
                         version=__version__)
     args = parser.parse_args()
