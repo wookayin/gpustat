@@ -335,7 +335,7 @@ def main():
     parser.add_argument('--gpuname-width', type=int, default=16,
                         help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('-v', '--version', action='version',
-                        version=__version__)
+                        version=('gpustat %s' % __version__))
     args = parser.parse_args()
 
     print_gpustat(**vars(args))
