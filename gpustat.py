@@ -163,10 +163,10 @@ class GPUStatCollection(object):
                              'utilization.gpu', 'memory.used', 'memory.total')
         gpu_list = []
 
-        smi_output = check_output(
+        smi_output = str(check_output(
             r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader,nounits'.format(
                 query_cols=','.join(gpu_query_columns)
-            ), shell=True).decode().strip()
+            ), shell=True).strip())
 
         for line in smi_output.split('\n'):
             if not line: continue
@@ -183,10 +183,10 @@ class GPUStatCollection(object):
     def running_processes():
         # 1. collect all running GPU processes
         gpu_query_columns = ('gpu_uuid', 'pid', 'used_memory')
-        smi_output = check_output(
+        smi_output = str(check_output(
             r'nvidia-smi --query-compute-apps={query_cols} --format=csv,noheader,nounits'.format(
                 query_cols=','.join(gpu_query_columns)
-            ), shell=True).decode()
+            ), shell=True).strip())
 
         process_entries = []
         for line in smi_output.split('\n'):
@@ -202,10 +202,10 @@ class GPUStatCollection(object):
 
         # 2. map pid to username, etc.
         if pid_map:
-            pid_output = check_output('ps -o {} -p {}'.format(
+            pid_output = str(check_output('ps -o {} -p {}'.format(
                 'pid,user:16,comm',
                 ','.join(map(str, pid_map.keys()))
-            ), shell=True).decode().strip()
+            ), shell=True).strip())
             for line in pid_output.split('\n'):
                 if (not line) or 'PID' in line: continue
                 pid, user, comm = line.split()[:3]
