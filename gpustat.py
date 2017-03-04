@@ -61,6 +61,17 @@ class GPUStat(object):
     def __repr__(self):
         return self.print_to(StringIO()).getvalue()
 
+    def keys(self):
+        return self.entry.keys()
+
+    def __getitem__(self, key):
+        return self.entry[key]
+
+    @property
+    def uuid(self):
+        return self.entry['uuid']
+
+
     def print_to(self, fp,
                  with_colors=True,
                  show_cmd=False,
@@ -125,10 +136,6 @@ class GPUStat(object):
 
         fp.write(reps)
         return fp
-
-    @property
-    def uuid(self):
-        return self.entry['uuid']
 
     def add_process(self, p):
         self.processes.append(p)

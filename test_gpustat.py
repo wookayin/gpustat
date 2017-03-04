@@ -67,6 +67,16 @@ class TestGPUStat(unittest.TestCase):
 """)
         #"""
 
+    def test_attributes_and_items(self):
+        g = gpustat.new_query()[0]
+
+        self.assertEqual(g['name'], g.entry['name'])
+        self.assertEqual(g['uuid'], g.uuid)
+
+        with self.assertRaises(KeyError):
+            g['unknown_key']
+
+
 
 if __name__ == '__main__':
     unittest.main()
