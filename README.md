@@ -23,7 +23,13 @@ Options:
 ### Tips
 
 - To periodically watch, try `watch --color -n1.0 gpustat` (built-in watch support will be added soon).
-- Running `nvidia-smi daemon` (root privilege required) will make the query much faster.
+- Running `nvidia-smi daemon` (root privilege required) will make the query much **faster**.
+- The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
+  while CUDA differently assigns the fastest GPU with the lowest ID by default.
+  Therefore, in order to make CUDA and `gpustat` use **same GPU index**,
+  configure the `CUDA_DEVICE_ORDER` environment variable to `PCI_BUS_ID`
+  (before setting `CUDA_VISIBLE_DEVICES` for your CUDA program):
+  `export CUDA_DEVICE_ORDER=PCI_BUS_ID`
 
 
 Quick Installation
