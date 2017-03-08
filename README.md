@@ -2,6 +2,7 @@
 =========
 
 [![pypi](https://img.shields.io/pypi/v/gpustat.svg?maxAge=86400)][pypi_gpustat]
+[![Build Status](https://travis-ci.org/wookayin/gpustat.svg?branch=master)](https://travis-ci.org/wookayin/gpustat)
 [![license](https://img.shields.io/github/license/wookayin/gpustat.svg?maxAge=86400)](LICENSE)
 
 Just *less* than nvidia-smi?
