@@ -61,9 +61,6 @@ class GPUStat(object):
             if 'Not Supported' in self.entry[k]:
                 self.entry[k] = None
 
-        if self.entry['utilization.gpu'] is None:
-            self.entry['utilization.gpu'] = '??'
-
 
     def __repr__(self):
         return self.print_to(StringIO()).getvalue()
@@ -76,8 +73,58 @@ class GPUStat(object):
 
     @property
     def uuid(self):
+        """
+        Returns the uuid returned by nvidia-smi,
+        e.g. GPU-12345678-abcd-abcd-uuid-123456abcdef
+        """
         return self.entry['uuid']
 
+    @property
+    def name(self):
+        """
+        Returns the name of GPU card (e.g. Geforce Titan X)
+        """
+        return self.entry['name']
+
+    @property
+    def memory_total(self):
+        """
+        Returns the total memory (in MB) as an integer.
+        """
+        return int(self.entry['memory.total'])
+
+    @property
+    def memory_used(self):
+        """
+        Returns the occupied memory (in MB) as an integer.
+        """
+        return int(self.entry['memory.used'])
+
+    @property
+    def memory_available(self):
+        """
+        Returns the available memory (in MB) as an integer.
+        """
+        v = self.memory_total - self.memory_used
+        return max(v, 0)
+
+    @property
+    def temperature(self):
+        """
+        Returns the temperature of GPU as an integer,
+        or None if the information is not available.
+        """
+        v = self.entry['temperature.gpu']
+        return int(v) if v is not None else None
+
+    @property
+    def utilization(self):
+        """
+        Returns the GPU utilization (in percentile),
+        or None if the information is not available.
+        """
+        v = self.entry['utilization.gpu']
+        return int(v) if v is not None else None
 
     def print_to(self, fp,
                  with_colors=True,
@@ -112,18 +159,18 @@ class GPUStat(object):
             for k in list(colors.keys()):
                 colors[k] = ''
 
+        def _repr(v, none_value='??'):
+            if v is None: return none_value
+            else: return str(v)
+
         # build one-line display information
         reps = ("%(C1)s[{entry[index]}]%(C0)s %(CName)s{entry[name]:{gpuname_width}}%(C0)s |" +
                 "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, %(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s | " +
                 "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
                 ) % colors
-        reps = reps.format(entry=self.entry,
+        reps = reps.format(entry={k: _repr(v) for (k, v) in self.entry.items()},
                            gpuname_width=gpuname_width)
         reps += " |"
-
-        def _repr(v, none_value='???'):
-            if v is None: return none_value
-            else: return str(v)
 
         def process_repr(p):
             r = ''

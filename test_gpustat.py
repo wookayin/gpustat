@@ -71,13 +71,22 @@ class TestGPUStat(unittest.TestCase):
         #"""
 
     def test_attributes_and_items(self):
-        g = gpustat.new_query()[0]
+        g = gpustat.new_query()[2]  # includes N/A
+        print("(keys) : %s" % str(g.keys()))
+        print(g)
 
         self.assertEqual(g['name'], g.entry['name'])
         self.assertEqual(g['uuid'], g.uuid)
 
         with self.assertRaises(KeyError):
             g['unknown_key']
+
+        print("uuid : %s" % g.uuid)
+        print("name : %s" % g.name)
+        print("memory : used %d total %d avail %d" % (
+            g.memory_used, g.memory_total, g.memory_available))
+        print("temperature : %d" % (g.temperature))
+        print("utilization : %s" % (g.utilization))
 
 
 
