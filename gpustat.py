@@ -401,7 +401,7 @@ def new_query():
     return GPUStatCollection.new_query()
 
 
-def print_gpustat(**args):
+def print_gpustat(json=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
@@ -430,7 +430,7 @@ def main():
                         help='Display PID of running process')
     parser.add_argument('--gpuname-width', type=int, default=16,
                         help='The minimum column width of GPU names, defaults to 16')
-    parser.add_argument('--json', action='store_true',
+    parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
