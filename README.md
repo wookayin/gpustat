@@ -20,6 +20,7 @@ Options:
 * `-u`, `--show-user` : Display username of the process owner
 * `-c`, `--show-cmd`  : Display the process name
 * `-p`, `--show-pid`  : Display PID of the process
+* `--json`            : JSON Output (Experimental, #10)
 
 ### Tips
 
