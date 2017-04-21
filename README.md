@@ -58,7 +58,7 @@ sudo wget https://git.io/gpustat.py -O /usr/local/bin/gpustat && sudo chmod +x /
 
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
 [script_gitio]: https://git.io/gpustat.py
-[script_stable]: https://raw.githubusercontent.com/wookayin/gpustat/v0.2.0/gpustat.py
+[script_stable]: https://raw.githubusercontent.com/wookayin/gpustat/v0.3.1/gpustat.py
 
 
 License
