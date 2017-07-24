@@ -188,8 +188,8 @@ class GPUStat(object):
         # build one-line display information
         reps = ("%(C1)s[{entry[index]}]%(C0)s %(CName)s{entry[name]:{gpuname_width}}%(C0)s |" +
                 "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, %(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s | " +
-                "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB |" +
-                " %(CPower)s{entry[power.draw]:>5}%(C0)s / %(CPowerT)s{entry[power.limit]:>5}%(C0)s W"
+                "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB | " +
+                "%(CPower)s{entry[power.draw]:>5}%(C0)s / %(CPowerT)s{entry[power.limit]:>5}%(C0)s W"
                 ) % colors
         reps = reps.format(entry={k: _repr(v) for (k, v) in self.entry.items()},
                            gpuname_width=gpuname_width)
