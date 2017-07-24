@@ -126,11 +126,11 @@ class GPUStat(object):
         """
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
-    
+
     @property
     def power_draw(self):
         """
-        Returns the GPU power (in Watts),
+        Returns the GPU instant power draw(in Watts),
         or None if the information is not available.
         """
         v = self.entry['power.draw']
@@ -139,12 +139,12 @@ class GPUStat(object):
     @property
     def power_limit(self):
         """
-            Returns the GPU power (in Watts),
+            Returns the GPU power limit (in Watts),
             or None if the information is not available.
             """
         v = self.entry['power.limit']
         return int(v) if v is not None else None
-    
+
     def print_to(self, fp,
                  with_colors=True,
                  show_cmd=False,
@@ -173,6 +173,9 @@ class GPUStat(object):
         colors['CUser'] = ANSIColors.GRAY
         colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
                                        ANSIColors.GREEN, ANSIColors.BOLD_GREEN)
+        colors['CPower'] = _conditional(lambda: int(self.entry['power.draw']) < 50,
+                                                                      ANSIColors.RED, ANSIColors.BOLD_RED)
+        colors['CPowerT'] = ANSIColors.BOLD_RED
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -185,7 +188,8 @@ class GPUStat(object):
         # build one-line display information
         reps = ("%(C1)s[{entry[index]}]%(C0)s %(CName)s{entry[name]:{gpuname_width}}%(C0)s |" +
                 "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, %(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s | " +
-                "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
+                "%(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB |" +
+                " %(CPower)s{entry[power.draw]:>5}%(C0)s / %(CPowerT)s{entry[power.limit]:>5}%(C0)s W"
                 ) % colors
         reps = reps.format(entry={k: _repr(v) for (k, v) in self.entry.items()},
                            gpuname_width=gpuname_width)
@@ -243,7 +247,8 @@ class GPUStatCollection(object):
     def new_query():
         # 1. get the list of gpu and status
         gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
-                             'utilization.gpu', 'memory.used', 'memory.total', 'power.draw', 'power.limit)
+                             'utilization.gpu', 'memory.used', 'memory.total', 
+                             'power.draw', 'power.limit')
         gpu_list = []
 
         smi_output = execute_process(
