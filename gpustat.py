@@ -126,7 +126,25 @@ class GPUStat(object):
         """
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
+    
+    @property
+    def power_draw(self):
+        """
+        Returns the GPU power (in Watts),
+        or None if the information is not available.
+        """
+        v = self.entry['power.draw']
+        return int(v) if v is not None else None
 
+    @property
+    def power_limit(self):
+        """
+            Returns the GPU power (in Watts),
+            or None if the information is not available.
+            """
+        v = self.entry['power.limit']
+        return int(v) if v is not None else None
+    
     def print_to(self, fp,
                  with_colors=True,
                  show_cmd=False,
@@ -225,7 +243,7 @@ class GPUStatCollection(object):
     def new_query():
         # 1. get the list of gpu and status
         gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
-                             'utilization.gpu', 'memory.used', 'memory.total')
+                             'utilization.gpu', 'memory.used', 'memory.total', 'power.draw', 'power.limit)
         gpu_list = []
 
         smi_output = execute_process(
