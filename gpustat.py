@@ -334,7 +334,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        gpuname_width=16,
+                        gpuname_width=16,ret_json=False,
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
@@ -373,7 +373,11 @@ class GPUStatCollection(object):
             else:
                 raise TypeError
 
+
         o = self.jsonify()
+        if fp is None:
+            return o
+
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
         fp.write('\n')
@@ -412,7 +416,10 @@ def print_gpustat(json=False, **args):
         sys.exit(1)
 
     if json:
-        gpu_stats.print_json(sys.stdout)
+        if args['ret_json']:
+            return gpu_stats.print_json(None)
+        else:    
+            gpu_stats.print_json(sys.stdout)
     else:
         gpu_stats.print_formatted(sys.stdout, **args)
 
@@ -434,6 +441,8 @@ def main():
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
+    parser.add_argument('--ret-json', action='store_true', default=False,
+                        help='return json for calling as library')
     args = parser.parse_args()
 
     print_gpustat(**vars(args))
