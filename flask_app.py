@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def get_status():
-    data = gpustat.print_gpustat(**{'show_cmd': True, 'gpuname_width': 16, 'show_user': True, 'show_pid': True, 'json': True, 'no_color': False, 'ret_json': True} )    
+    data = gpustat.print_gpustat(**{'show_cmd': False, 'gpuname_width': 16, 'show_user': False, 'show_pid': False, 'json': True, 'no_color': False, 'ret_json': True})
     data['query_time']= time.time()
     
     return('{0}'.format(json.dumps(data,indent=4)))
