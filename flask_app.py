@@ -3,6 +3,7 @@ import gpustat
 import json
 import time
 import pprint
+import sys
 
 
 app = Flask(__name__)
@@ -16,4 +17,8 @@ def get_status():
     return('{0}'.format(json.dumps(data,indent=4)))
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0',port=5000)
+    port = 5000
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+  
+    app.run(host='0.0.0.0',port=port)

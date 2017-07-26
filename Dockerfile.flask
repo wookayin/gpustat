@@ -1,0 +1,17 @@
+FROM nvidia/cuda
+
+MAINTAINER dgrossman@iqt.org
+
+# Update apt-get
+RUN apt-get -y update
+
+RUN apt-get install -y python python-pip
+RUN pip install flask 
+
+ADD . /home/stats/
+WORKDIR /home/stats
+
+EXPOSE 6502
+
+ENTRYPOINT ["/usr/bin/python"]
+CMD ["flask_app.py","6502"]
