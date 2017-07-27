@@ -11,6 +11,8 @@ RUN pip install flask
 ADD . /home/stats/
 WORKDIR /home/stats
 
+ENV DOCKER_CONTAINER=True
+
 EXPOSE 6502
 
 ENTRYPOINT ["/usr/bin/python"]

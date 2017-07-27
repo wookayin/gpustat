@@ -19,6 +19,7 @@ import sys
 import locale
 import platform
 import json
+import os
 
 __version__ = '0.3.1'
 
@@ -262,22 +263,22 @@ class GPUStatCollection(object):
                                   })
             process_entries.append(process_entry)
 
-        pid_map = {int(e['pid']) : None for e in process_entries
-                   if not 'Not Supported' in e['pid']}
+        pid_map = {int(e['pid']) : None for e in process_entries if not 'Not Supported' in e['pid']}
+        if os.environ.get('DOCKER_CONTAINER') is  None:
 
-        # 2. map pid to username, etc.
-        if pid_map:
-            pid_output = execute_process('ps -o {} -p {}'.format(
-                'pid,user:16,comm',
-                ','.join(map(str, pid_map.keys()))
-            ))
-            for line in pid_output.split('\n'):
-                if (not line) or 'PID' in line: continue
-                pid, user, comm = line.split()[:3]
-                pid_map[int(pid)] = {
-                    'user' : user,
-                    'comm' : comm
-                }
+            # 2. map pid to username, etc.
+            if pid_map:
+                pid_output = execute_process('ps -o {} -p {}'.format(
+                    'pid,user:16,comm',
+                    ','.join(map(str, pid_map.keys()))
+                ))
+                for line in pid_output.split('\n'):
+                    if (not line) or 'PID' in line: continue
+                    pid, user, comm = line.split()[:3]
+                    pid_map[int(pid)] = {
+                        'user' : user,
+                        'comm' : comm
+                    }
 
         # 3. add some process information to each process_entry
         for process_entry in process_entries[:]:
@@ -409,6 +410,7 @@ def print_gpustat(json=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
+    gpu_stats = GPUStatCollection.new_query()
     try:
         gpu_stats = GPUStatCollection.new_query()
     except CalledProcessError:
