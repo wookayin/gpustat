@@ -19,6 +19,7 @@ import sys
 import locale
 import platform
 import json
+import os
 
 __version__ = '0.3.1'
 
@@ -262,22 +263,22 @@ class GPUStatCollection(object):
                                   })
             process_entries.append(process_entry)
 
-        pid_map = {int(e['pid']) : None for e in process_entries
-                   if not 'Not Supported' in e['pid']}
+        pid_map = {int(e['pid']) : None for e in process_entries if not 'Not Supported' in e['pid']}
+        if os.environ.get('DOCKER_CONTAINER') is  None:
 
-        # 2. map pid to username, etc.
-        if pid_map:
-            pid_output = execute_process('ps -o {} -p {}'.format(
-                'pid,user:16,comm',
-                ','.join(map(str, pid_map.keys()))
-            ))
-            for line in pid_output.split('\n'):
-                if (not line) or 'PID' in line: continue
-                pid, user, comm = line.split()[:3]
-                pid_map[int(pid)] = {
-                    'user' : user,
-                    'comm' : comm
-                }
+            # 2. map pid to username, etc.
+            if pid_map:
+                pid_output = execute_process('ps -o {} -p {}'.format(
+                    'pid,user:16,comm',
+                    ','.join(map(str, pid_map.keys()))
+                ))
+                for line in pid_output.split('\n'):
+                    if (not line) or 'PID' in line: continue
+                    pid, user, comm = line.split()[:3]
+                    pid_map[int(pid)] = {
+                        'user' : user,
+                        'comm' : comm
+                    }
 
         # 3. add some process information to each process_entry
         for process_entry in process_entries[:]:
@@ -334,7 +335,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        gpuname_width=16,
+                        gpuname_width=16,ret_json=False,
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
@@ -373,7 +374,11 @@ class GPUStatCollection(object):
             else:
                 raise TypeError
 
+
         o = self.jsonify()
+        if fp is None:
+            return o
+
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
         fp.write('\n')
@@ -405,6 +410,7 @@ def print_gpustat(json=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
+    gpu_stats = GPUStatCollection.new_query()
     try:
         gpu_stats = GPUStatCollection.new_query()
     except CalledProcessError:
@@ -412,7 +418,10 @@ def print_gpustat(json=False, **args):
         sys.exit(1)
 
     if json:
-        gpu_stats.print_json(sys.stdout)
+        if args['ret_json']:
+            return gpu_stats.print_json(None)
+        else:    
+            gpu_stats.print_json(sys.stdout)
     else:
         gpu_stats.print_formatted(sys.stdout, **args)
 
@@ -434,6 +443,8 @@ def main():
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
+    parser.add_argument('--ret-json', action='store_true', default=False,
+                        help='return json for calling as library')
     args = parser.parse_args()
 
     print_gpustat(**vars(args))
