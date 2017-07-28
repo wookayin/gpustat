@@ -9,6 +9,10 @@ import sys
 app = Flask(__name__)
 
 
+@app.route('/health')
+def health():
+    return '',200
+
 @app.route('/')
 def get_status():
     data = gpustat.print_gpustat(**{'show_cmd': False, 'gpuname_width': 16, 'show_user': False, 'show_pid': False, 'json': True, 'no_color': False, 'ret_json': True})
