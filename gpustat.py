@@ -401,14 +401,17 @@ def new_query():
     return GPUStatCollection.new_query()
 
 
-def print_gpustat(json=False, **args):
+def print_gpustat(json=False, debug=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
     try:
         gpu_stats = GPUStatCollection.new_query()
     except CalledProcessError:
-        sys.stderr.write('Error on calling nvidia-smi\n')
+        sys.stderr.write('Error on calling nvidia-smi. Use --debug flag for details\n')
+        if debug:
+            import traceback
+            traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
     if json:
@@ -432,6 +435,8 @@ def main():
                         help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Allow to print additional informations for debugging.')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
     args = parser.parse_args()
