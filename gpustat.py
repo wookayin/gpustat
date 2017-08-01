@@ -267,18 +267,22 @@ class GPUStatCollection(object):
 
         # 2. map pid to username, etc.
         if pid_map:
-            try:
-                pid_output = execute_process('ps -o {} -p {}'.format(
-                    'pid,user:16,comm',
-                    ','.join(map(str, pid_map.keys()))
-                ))
-            except CalledProcessError:
-                # Exception on PID of non-existent process returned by nvidia-smi
-                pid_output = ""
+            # Sometimes nvidia-smi returns non-existent process PID (see #12);
+            # To let ps exit with a non-zero return code in such cases,
+            # we always include querying PID 1 as well (but ignored).
+            pid_output = execute_process('ps -o {} -p1 -p {}'.format(
+                'pid,user:16,comm',
+                ','.join(map(str, pid_map.keys()))
+            ))
+
             for line in pid_output.split('\n'):
                 if (not line) or 'PID' in line: continue
                 pid, user, comm = line.split()[:3]
-                pid_map[int(pid)] = {
+
+                pid = int(pid)
+                if pid <= 1: continue
+
+                pid_map[pid] = {
                     'user' : user,
                     'comm' : comm
                 }
