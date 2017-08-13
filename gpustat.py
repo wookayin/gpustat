@@ -20,6 +20,8 @@ import locale
 import platform
 import json
 
+from pynvml import *
+
 __version__ = '0.4.0.dev'
 
 
@@ -37,9 +39,11 @@ class ANSIColors:
     BOLD_GREEN  = '\033[1;32m'
     BOLD_YELLOW = '\033[1;33m'
 
-    @staticmethod
-    def wrap(color, msg):
-        return (color + msg + ANSIColors.RESET)
+NOT_SUPPPORTED = 'Not Supported'
+
+@staticmethod
+def wrap(color, msg):
+    return (color + msg + ANSIColors.RESET)
 
 
 def execute_process(command_shell):
@@ -59,7 +63,7 @@ class GPUStat(object):
 
         # Handle '[Not Supported] for old GPU cards (#6)
         for k in self.entry.keys():
-            if 'Not Supported' in self.entry[k]:
+            if self.entry[k] == NOT_SUPPPORTED:
                 self.entry[k] = None
 
 
@@ -223,25 +227,52 @@ class GPUStatCollection(object):
 
     @staticmethod
     def new_query():
+        nvmlInit()
         # 1. get the list of gpu and status
-        gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
-                             'utilization.gpu', 'memory.used', 'memory.total')
+        # gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
+        #                      'utilization.gpu', 'memory.used', 'memory.total')
         gpu_list = []
 
-        smi_output = execute_process(
-            r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader,nounits'.format(
-                query_cols=','.join(gpu_query_columns)
-            ))
+        # smi_output = execute_process(
+        #     r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader,nounits'.format(
+        #         query_cols=','.join(gpu_query_columns)
+        #     ))
 
-        for line in smi_output.split('\n'):
-            if not line: continue
-            query_results = line.split(',')
+        # for line in smi_output.split('\n'):
+        #     if not line: continue
+        #     query_results = line.split(',')
 
-            g = GPUStat({col_name: col_value.strip() for
-                         (col_name, col_value) in zip(gpu_query_columns, query_results)
-                         })
-            gpu_list.append(g)
+        #     g = GPUStat({col_name: col_value.strip() for
+        #                  (col_name, col_value) in zip(gpu_query_columns, query_results)
+        #                  })
+        #     gpu_list.append(g)
 
+        device_count = nvmlDeviceGetCount()
+
+        for index in range(device_count):
+            handle = nvmlDeviceGetHandleByIndex(index)
+            name = nvmlDeviceGetName(handle)
+            uuid = nvmlDeviceGetUUID(handle)
+            temperature = nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
+            util_supported = True
+            try:
+                utilization = nvmlDeviceGetUtilizationRates(handle)
+            except NVMLError:
+                util_supported = False
+            memory = nvmlDeviceGetMemoryInfo(handle) # in Bytes
+            gpu_info={
+                'index': index,
+                'uuid': uuid,
+                'name': name,
+                'temperature.gpu': temperature,
+                'utilization.gpu': utilization.gpu if util_supported else NOT_SUPPPORTED,
+                'memory.used': memory.used / 1024 / 1024, # Convert bytes into MBytes
+                'memory.total': memory.total / 1024 / 1024,
+            }
+            gpu_stat = GPUStat(gpu_info)
+            gpu_list.append(gpu_stat)
+
+        nvmlShutdown()
         return GPUStatCollection(gpu_list)
 
     @staticmethod
@@ -263,7 +294,7 @@ class GPUStatCollection(object):
             process_entries.append(process_entry)
 
         pid_map = {int(e['pid']) : None for e in process_entries
-                   if not 'Not Supported' in e['pid']}
+                   if not NOT_SUPPPORTED in e['pid']}
 
         # 2. map pid to username, etc.
         if pid_map:
@@ -290,7 +321,7 @@ class GPUStatCollection(object):
         # 3. add some process information to each process_entry
         for process_entry in process_entries[:]:
 
-            if 'Not Supported' in process_entry['pid']:
+            if NOT_SUPPPORTED in process_entry['pid']:
                 # TODO move this stuff into somewhere appropriate
                 # such as running_processes(): process_entry = ...
                 # or introduce Process class to elegantly handle it
