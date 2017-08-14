@@ -23,30 +23,14 @@ import json
 import psutil
 # wildcard import because the name is too long
 from pynvml import *
+from blessings import Terminal
 
 __version__ = '0.4.0.dev'
 
 
-class ANSIColors:
-    RESET   = '\033[0m'
-    WHITE   = '\033[1m'
-    RED     = '\033[0;31m'
-    GREEN   = '\033[0;32m'
-    YELLOW  = '\033[0;33m'
-    BLUE    = '\033[0;34m'
-    MAGENTA = '\033[0;35m'
-    CYAN    = '\033[0;36m'
-    GRAY        = '\033[1;30m'
-    BOLD_RED    = '\033[1;31m'
-    BOLD_GREEN  = '\033[1;32m'
-    BOLD_YELLOW = '\033[1;33m'
-
 NOT_SUPPPORTED = 'Not Supported'
 
-@staticmethod
-def wrap(color, msg):
-    return (color + msg + ANSIColors.RESET)
-
+term = Terminal()
 
 def execute_process(command_shell):
     stdout = check_output(command_shell, shell=True).strip()
@@ -142,24 +126,24 @@ class GPUStat(object):
         # color settings
         colors = {}
         def _conditional(cond_fn, true_value, false_value,
-                         error_value=ANSIColors.GRAY):
+                         error_value=term.gray):
             try:
                 if cond_fn(): return true_value
                 else: return false_value
             except:
                 return error_value
 
-        colors['C0'] = ANSIColors.RESET
-        colors['C1'] = ANSIColors.CYAN
-        colors['CName'] = ANSIColors.BLUE
+        colors['C0'] = term.normal
+        colors['C1'] = term.cyan
+        colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: int(self.entry['temperature.gpu']) < 50,
-                                       ANSIColors.RED, ANSIColors.BOLD_RED)
-        colors['CMemU'] = ANSIColors.BOLD_YELLOW
-        colors['CMemT'] = ANSIColors.YELLOW
-        colors['CMemP'] = ANSIColors.YELLOW
-        colors['CUser'] = ANSIColors.GRAY
+                                       term.red, term.bold_red)
+        colors['CMemU'] = term.bold_yellow
+        colors['CMemT'] = term.yellow
+        colors['CMemP'] = term.yellow
+        colors['CUser'] = term.gray
         colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
-                                       ANSIColors.GREEN, ANSIColors.BOLD_GREEN)
+                                       term.green, term.bold_green)
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -312,11 +296,11 @@ class GPUStatCollection(object):
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
-        header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
+        header_msg = '{t.white}{hostname}{t.normal}  {timestr}'.format(**{
             'hostname' : self.hostname,
-            'timestr' : self.query_time.strftime(time_format)
-
-        }) % (defaultdict(str) if no_color else ANSIColors.__dict__)
+            'timestr' : self.query_time.strftime(time_format),
+            't': term,
+        })
 
         print(header_msg)
 
@@ -352,27 +336,6 @@ class GPUStatCollection(object):
                   default=date_handler)
         fp.write('\n')
         fp.flush()
-
-
-def self_test():
-    gpu_stats = GPUStatCollection.new_query()
-    print('# of GPUS:', len(gpu_stats))
-    for g in gpu_stats:
-        print(g)
-
-    process_entries = GPUStatCollection.running_processes()
-    print('---Entries---')
-    print(process_entries)
-
-    print('-------------')
-
-
-def new_query():
-    '''
-    Obtain a new GPUStatCollection instance by querying nvidia-smi
-    to get the list of GPUs and running process information.
-    '''
-    return GPUStatCollection.new_query()
 
 
 def print_gpustat(json=False, debug=False, **args):
