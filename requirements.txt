@@ -1,3 +1,4 @@
+six
 nvidia-ml-py
 psutil
 blessings

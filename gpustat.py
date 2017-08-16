@@ -11,16 +11,16 @@ from __future__ import print_function
 from subprocess import check_output, CalledProcessError
 from datetime import datetime
 from collections import defaultdict
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
+from six.moves import cStringIO as StringIO
+
+import six
 import sys
 import locale
 import platform
 import json
-
 import psutil
+import os.path
+
 # wildcard import because the name is too long
 from pynvml import *
 from blessings import Terminal
@@ -28,7 +28,7 @@ from blessings import Terminal
 __version__ = '0.4.0.dev'
 
 
-NOT_SUPPPORTED = 'Not Supported'
+NOT_SUPPORTED = 'Not Supported'
 
 term = Terminal()
 
@@ -48,7 +48,7 @@ class GPUStat(object):
 
         # Handle '[Not Supported] for old GPU cards (#6)
         for k in self.entry.keys():
-            if self.entry[k] == NOT_SUPPPORTED:
+            if isinstance(self.entry[k], six.string_types) and NOT_SUPPORTED in self.entry[k]:
                 self.entry[k] = None
 
 
@@ -141,7 +141,7 @@ class GPUStat(object):
         colors['CMemU'] = term.bold_yellow
         colors['CMemT'] = term.yellow
         colors['CMemP'] = term.yellow
-        colors['CUser'] = term.gray
+        colors['CUser'] = term.bold_black   # gray
         colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
                                        term.green, term.bold_green)
 
@@ -188,13 +188,9 @@ class GPUStat(object):
 
     def jsonify(self):
         o = dict(self.entry)
-        o['processes'] = [{k: v for (k, v) in p.iteritems() if k != 'gpu_uuid'}
-                          for p in self.processes]
+        o['processes'] = [{k: v for (k, v) in p.items() if k != 'gpu_uuid'}
+                          for p in self.entry['processes']]
         return o
-
-    def add_process(self, p):
-        self.processes.append(p)
-        return self
 
 
 class GPUStatCollection(object):
@@ -218,22 +214,27 @@ class GPUStatCollection(object):
                 process = {}
                 ps_process = psutil.Process(pid=pid)
                 process['username'] = ps_process.username()
-                process['command'] = ps_process.cmdline()[0]
+                # cmdline returns full path; as in `ps -o comm`, get short cmdnames.
+                process['command'] = os.path.basename(ps_process.cmdline()[0])
                 # Bytes to MBytes
-                process['gpu_memory_usage'] = nv_process.usedGpuMemory / 1024 / 1024
+                process['gpu_memory_usage'] = int(nv_process.usedGpuMemory / 1024 / 1024)
                 process['pid'] = nv_process.pid
                 return process
 
-            name = nvmlDeviceGetName(handle)
-            uuid = nvmlDeviceGetUUID(handle)
+            def _decode(b):
+                if isinstance(b, bytes):
+                    return b.decode()    # for python3, to unicode
+                return b
+
+            name = _decode(nvmlDeviceGetName(handle))
+            uuid = _decode(nvmlDeviceGetUUID(handle))
             temperature = nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
             memory = nvmlDeviceGetMemoryInfo(handle) # in Bytes
 
-            util_supported = True
             try:
                 utilization = nvmlDeviceGetUtilizationRates(handle)
             except NVMLError:
-                util_supported = False
+                utilization = None
 
             processes = []
             try:
@@ -245,16 +246,16 @@ class GPUStatCollection(object):
                     process = get_process_info(nv_process.pid)
                     processes.append(process)
             except NVMLError:
-                processes = NOT_SUPPPORTED
+                processes = None  # Not supported
 
-            gpu_info={
+            gpu_info = {
                 'index': index,
                 'uuid': uuid,
                 'name': name,
                 'temperature.gpu': temperature,
-                'utilization.gpu': utilization.gpu if util_supported else NOT_SUPPPORTED,
-                'memory.used': memory.used / 1024 / 1024, # Convert bytes into MBytes
-                'memory.total': memory.total / 1024 / 1024,
+                'utilization.gpu': utilization.gpu if utilization else None,
+                'memory.used': int(memory.used / 1024 / 1024), # Convert bytes into MBytes
+                'memory.total': int(memory.total / 1024 / 1024),
                 'processes': processes,
             }
             return gpu_info
@@ -296,13 +297,15 @@ class GPUStatCollection(object):
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
-        header_msg = '{t.white}{hostname}{t.normal}  {timestr}'.format(**{
+        header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
             'hostname' : self.hostname,
             'timestr' : self.query_time.strftime(time_format),
-            't': term,
+            't' : term if not no_color \
+                       else Terminal(force_styling=None)
         })
 
-        print(header_msg)
+        fp.write(header_msg)
+        fp.write('\n')
 
         # body
         gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
@@ -329,13 +332,21 @@ class GPUStatCollection(object):
             if hasattr(obj, 'isoformat'):
                 return obj.isoformat()
             else:
-                raise TypeError
+                raise TypeError(type(obj))
 
         o = self.jsonify()
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
         fp.write('\n')
         fp.flush()
+
+
+def new_query():
+    '''
+    Obtain a new GPUStatCollection instance by querying nvidia-smi
+    to get the list of GPUs and running process information.
+    '''
+    return GPUStatCollection.new_query()
 
 
 def print_gpustat(json=False, debug=False, **args):
