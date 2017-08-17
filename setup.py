@@ -1,4 +1,8 @@
 from setuptools import setup
+import sys
+
+IS_PY_2 = (sys.version_info[0] <= 2)
+
 import gpustat
 
 def read_readme():
@@ -27,6 +31,11 @@ setup(
     #packages=['gpustat'],
     py_modules=['gpustat'],
     install_requires=[
+        'six',
+        'nvidia-ml-py>=7.352.0' if IS_PY_2 else \
+            'nvidia-ml-py3>=7.352.0',
+        'psutil',
+        'blessings>=1.6',
     ],
     test_suite='nose.collector',
     tests_require=['nose', 'nose-cover3'],
