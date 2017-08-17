@@ -7,11 +7,7 @@ from __future__ import print_function
 import unittest
 import gpustat
 from collections import namedtuple
-
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
+from six.moves import cStringIO as StringIO
 
 try:
     import unittest.mock as mock
@@ -29,7 +25,6 @@ def _configure_mock(N, Process):
     Define mock behaviour for N: the pynvml module, and psutil.Process,
     which should be MagicMock objects from unittest.mock.
     """
-    print(N)
 
     # Restore some non-mock objects (such as exceptions)
     for attr in dir(pynvml):

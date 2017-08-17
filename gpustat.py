@@ -125,7 +125,7 @@ class GPUStat(object):
         # color settings
         colors = {}
         def _conditional(cond_fn, true_value, false_value,
-                         error_value=term.gray):
+                         error_value=term.bold_black):
             try:
                 if cond_fn(): return true_value
                 else: return false_value

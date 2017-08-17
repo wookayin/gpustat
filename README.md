@@ -49,16 +49,14 @@ To install the latest version (master branch) via pip:
 pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
-Alternatively, you can just download an *unstable* version of [gpustat.py][script_gitio] (or any [stable version][script_stable]) into somewhere in `PATH`, e.g. `~/.local/bin/`
-(when you do not have root privilege, for example):
+If you don't have root privilege, you can try `pip install --user` as well.
+Please note that from v0.4, `gpustat.py` is no more a zero-dependency executable.
 
 ```
 sudo wget https://git.io/gpustat.py -O /usr/local/bin/gpustat && sudo chmod +x /usr/local/bin/gpustat
 ```
 
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
-[script_gitio]: https://git.io/gpustat.py
-[script_stable]: https://raw.githubusercontent.com/wookayin/gpustat/v0.3.1/gpustat.py
 
 
 License
