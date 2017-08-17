@@ -21,8 +21,7 @@ import json
 import psutil
 import os.path
 
-# wildcard import because the name is too long
-from pynvml import *
+import pynvml as N
 from blessings import Terminal
 
 __version__ = '0.4.0.dev'
@@ -178,6 +177,10 @@ class GPUStat(object):
         if self.entry['processes'] is not None:
             for p in self.entry['processes']:
                 reps += ' ' + process_repr(p)
+        else:
+            # None (not available)
+            reps += ' (Not Supported)'
+
 
         fp.write(reps)
         return fp
@@ -206,6 +209,8 @@ class GPUStatCollection(object):
     def new_query():
         """Query the information of all the GPUs on local machine"""
 
+        N.nvmlInit()
+
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
 
@@ -226,26 +231,34 @@ class GPUStatCollection(object):
                     return b.decode()    # for python3, to unicode
                 return b
 
-            name = _decode(nvmlDeviceGetName(handle))
-            uuid = _decode(nvmlDeviceGetUUID(handle))
-            temperature = nvmlDeviceGetTemperature(handle, NVML_TEMPERATURE_GPU)
-            memory = nvmlDeviceGetMemoryInfo(handle) # in Bytes
+            name = _decode(N.nvmlDeviceGetName(handle))
+            uuid = _decode(N.nvmlDeviceGetUUID(handle))
 
             try:
-                utilization = nvmlDeviceGetUtilizationRates(handle)
-            except NVMLError:
-                utilization = None
+                temperature = N.nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU)
+            except N.NVMLError:
+                memory = None  # Not supported
+
+            try:
+                memory = N.nvmlDeviceGetMemoryInfo(handle) # in Bytes
+            except N.NVMLError:
+                memory = None  # Not supported
+
+            try:
+                utilization = N.nvmlDeviceGetUtilizationRates(handle)
+            except N.NVMLError:
+                utilization = None  # Not supported
 
             processes = []
             try:
-                nv_processes = nvmlDeviceGetComputeRunningProcesses(handle)
+                nv_processes = N.nvmlDeviceGetComputeRunningProcesses(handle)
                 # dict type is mutable
                 for nv_process in nv_processes:
                     #TODO: could be more information such as system memory usage,
                     # CPU percentage, create time etc.
                     process = get_process_info(nv_process.pid)
                     processes.append(process)
-            except NVMLError:
+            except N.NVMLError:
                 processes = None  # Not supported
 
             gpu_info = {
@@ -254,24 +267,24 @@ class GPUStatCollection(object):
                 'name': name,
                 'temperature.gpu': temperature,
                 'utilization.gpu': utilization.gpu if utilization else None,
-                'memory.used': int(memory.used / 1024 / 1024), # Convert bytes into MBytes
-                'memory.total': int(memory.total / 1024 / 1024),
+                # Convert bytes into MBytes
+                'memory.used': int(memory.used / 1024 / 1024) if memory else None,
+                'memory.total': int(memory.total / 1024 / 1024) if memory else None,
                 'processes': processes,
             }
             return gpu_info
 
-        nvmlInit()
         # 1. get the list of gpu and status
         gpu_list = []
-        device_count = nvmlDeviceGetCount()
+        device_count = N.nvmlDeviceGetCount()
 
         for index in range(device_count):
-            handle = nvmlDeviceGetHandleByIndex(index)
+            handle = N.nvmlDeviceGetHandleByIndex(index)
             gpu_info = get_gpu_info(handle)
             gpu_stat = GPUStat(gpu_info)
             gpu_list.append(gpu_stat)
 
-        nvmlShutdown()
+        N.nvmlShutdown()
         return GPUStatCollection(gpu_list)
 
     def __len__(self):

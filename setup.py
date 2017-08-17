@@ -9,6 +9,20 @@ def read_readme():
     with open('README.md') as f:
         return f.read()
 
+install_requires = [
+    'six',
+    'nvidia-ml-py>=7.352.0' if IS_PY_2 else \
+        'nvidia-ml-py3>=7.352.0',
+    'psutil',
+    'blessings>=1.6',
+]
+
+tests_requires = [
+    'mock>=2.0.0',
+    'nose',
+    'nose-cover3'
+]
+
 setup(
     name='gpustat',
     version=gpustat.__version__,
@@ -30,15 +44,10 @@ setup(
     ],
     #packages=['gpustat'],
     py_modules=['gpustat'],
-    install_requires=[
-        'six',
-        'nvidia-ml-py>=7.352.0' if IS_PY_2 else \
-            'nvidia-ml-py3>=7.352.0',
-        'psutil',
-        'blessings>=1.6',
-    ],
+    install_requires=install_requires,
+    extras_require={'test': tests_requires},
+    tests_require=tests_requires,
     test_suite='nose.collector',
-    tests_require=['nose', 'nose-cover3'],
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],
     },
