@@ -1,5 +1,4 @@
 from setuptools import setup
-import gpustat
 
 def read_readme():
     with open('README.md') as f:
@@ -7,7 +6,7 @@ def read_readme():
 
 setup(
     name='gpustat',
-    version=gpustat.__version__,
+    version='0.4.0.dev',
     license='MIT',
     description='An utility to monitor NVIDIA GPU status (wrapper of nvidia-smi)',
     long_description=read_readme(),
