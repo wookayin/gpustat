@@ -19,7 +19,6 @@ import sys
 import locale
 import platform
 import json
-import six
 
 __version__ = '0.4.0.dev'
 
@@ -198,6 +197,7 @@ class GPUStat(object):
         return self.entry['uuid']
 
     def jsonify(self):
+        import six
         o = dict(self.entry)
         o['processes'] = [{k: v for (k, v) in six.iteritems(p) if k != 'gpu_uuid'}
                           for p in self.processes]
