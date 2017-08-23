@@ -21,6 +21,8 @@ import platform
 import json
 import six
 
+__version__ = '0.4.0.dev'
+
 
 class ANSIColors:
     RESET   = '\033[0m'
