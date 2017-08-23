@@ -26,8 +26,7 @@ setup(
     ],
     #packages=['gpustat'],
     py_modules=['gpustat'],
-    install_requires=[
-    ],
+    install_requires=['six'],
     test_suite='nose.collector',
     tests_require=['nose', 'nose-cover3'],
     entry_points={
