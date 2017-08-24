@@ -336,7 +336,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        gpuname_width=16,ret_json=False,
+                        gpuname_width=16,
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
@@ -428,6 +428,25 @@ def print_gpustat(json=False, **args):
     else:
         gpu_stats.print_formatted(sys.stdout, **args)
 
+def return_json_gpustat(json=True, **args):
+    '''
+    Display the GPU query results into standard output.
+    '''
+    gpu_stats = GPUStatCollection.new_query()
+    try:
+        gpu_stats = GPUStatCollection.new_query()
+    except CalledProcessError:
+        sys.stderr.write('Error on calling nvidia-smi\n')
+        sys.exit(1)
+
+    if json:
+        if args['ret_json']:
+            return gpu_stats.return_json()
+    else:
+        return {}
+       
+
+
 
 def main():
     import argparse
@@ -446,8 +465,6 @@ def main():
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
-    parser.add_argument('--ret-json', action='store_true', default=False,
-                        help='return json for calling as library')
     args = parser.parse_args()
 
     print_gpustat(**vars(args))
