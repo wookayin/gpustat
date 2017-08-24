@@ -264,6 +264,7 @@ class GPUStatCollection(object):
             process_entries.append(process_entry)
 
         pid_map = {int(e['pid']) : None for e in process_entries if not 'Not Supported' in e['pid']}
+
         if os.environ.get('DOCKER_CONTAINER') is  None:
 
             # 2. map pid to username, etc.
@@ -374,15 +375,17 @@ class GPUStatCollection(object):
             else:
                 raise TypeError
 
-
         o = self.jsonify()
-        if fp is None:
-            return o
 
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
         fp.write('\n')
         fp.flush()
+
+    def return_json(self):
+        # return JSON view 
+        ret_val = self.jsonify()
+        return ret_val
 
 
 def self_test():
@@ -419,7 +422,7 @@ def print_gpustat(json=False, **args):
 
     if json:
         if args['ret_json']:
-            return gpu_stats.print_json(None)
+            return gpu_stats.return_json()
         else:    
             gpu_stats.print_json(sys.stdout)
     else:
