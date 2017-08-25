@@ -21,7 +21,7 @@ import platform
 import json
 import os
 
-__version__ = '0.3.1'
+__version__ = '0.4.0.dev'
 
 
 class ANSIColors:
@@ -265,21 +265,27 @@ class GPUStatCollection(object):
 
         pid_map = {int(e['pid']) : None for e in process_entries if not 'Not Supported' in e['pid']}
 
-        if os.environ.get('DOCKER_CONTAINER') is  None:
+        # 2. map pid to username, etc.
+        if pid_map:
+            # Sometimes nvidia-smi returns non-existent process PID (see #12);
+            # To let ps exit with a non-zero return code in such cases,
+            # we always include querying PID 1 as well (but ignored).
+            pid_output = execute_process('ps -o {} -p1 -p {}'.format(
+                'pid,user:16,comm',
+                ','.join(map(str, pid_map.keys()))
+            ))
 
-            # 2. map pid to username, etc.
-            if pid_map:
-                pid_output = execute_process('ps -o {} -p {}'.format(
-                    'pid,user:16,comm',
-                    ','.join(map(str, pid_map.keys()))
-                ))
-                for line in pid_output.split('\n'):
-                    if (not line) or 'PID' in line: continue
-                    pid, user, comm = line.split()[:3]
-                    pid_map[int(pid)] = {
-                        'user' : user,
-                        'comm' : comm
-                    }
+            for line in pid_output.split('\n'):
+                if (not line) or 'PID' in line: continue
+                pid, user, comm = line.split()[:3]
+
+                pid = int(pid)
+                if pid <= 1: continue
+
+                pid_map[pid] = {
+                    'user' : user,
+                    'comm' : comm
+                }
 
         # 3. add some process information to each process_entry
         for process_entry in process_entries[:]:
@@ -409,7 +415,7 @@ def new_query():
     return GPUStatCollection.new_query()
 
 
-def print_gpustat(json=False, **args):
+def print_gpustat(json=False, debug=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
@@ -417,7 +423,10 @@ def print_gpustat(json=False, **args):
     try:
         gpu_stats = GPUStatCollection.new_query()
     except CalledProcessError:
-        sys.stderr.write('Error on calling nvidia-smi\n')
+        sys.stderr.write('Error on calling nvidia-smi. Use --debug flag for details\n')
+        if debug:
+            import traceback
+            traceback.print_exc(file=sys.stderr)
         sys.exit(1)
 
     if json:
@@ -463,6 +472,8 @@ def main():
                         help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Allow to print additional informations for debugging.')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
     args = parser.parse_args()
