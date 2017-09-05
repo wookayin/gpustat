@@ -8,45 +8,27 @@ the gpustat script :)
 """
 
 from __future__ import print_function
-from subprocess import check_output, CalledProcessError
 from datetime import datetime
-from collections import OrderedDict, defaultdict
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
+from collections import defaultdict
+from six.moves import cStringIO as StringIO
+
+import six
 import sys
 import locale
 import platform
 import json
+import psutil
+import os.path
 
-__version__ = '0.4.0.dev'
+import pynvml as N
+from blessings import Terminal
 
-
-class ANSIColors:
-    RESET   = '\033[0m'
-    WHITE   = '\033[1m'
-    RED     = '\033[0;31m'
-    GREEN   = '\033[0;32m'
-    YELLOW  = '\033[0;33m'
-    BLUE    = '\033[0;34m'
-    MAGENTA = '\033[0;35m'
-    CYAN    = '\033[0;36m'
-    GRAY        = '\033[1;30m'
-    BOLD_RED    = '\033[1;31m'
-    BOLD_GREEN  = '\033[1;32m'
-    BOLD_YELLOW = '\033[1;33m'
-
-    @staticmethod
-    def wrap(color, msg):
-        return (color + msg + ANSIColors.RESET)
+__version__ = '0.4.0.dev0'
 
 
-def execute_process(command_shell):
-    stdout = check_output(command_shell, shell=True).strip()
-    if not isinstance(stdout, (str)):
-        stdout = stdout.decode()
-    return stdout
+NOT_SUPPORTED = 'Not Supported'
+
+term = Terminal()
 
 
 class GPUStat(object):
@@ -55,11 +37,10 @@ class GPUStat(object):
         if not isinstance(entry, dict):
             raise TypeError('entry should be a dict, {} given'.format(type(entry)))
         self.entry = entry
-        self.processes = []
 
         # Handle '[Not Supported] for old GPU cards (#6)
         for k in self.entry.keys():
-            if 'Not Supported' in self.entry[k]:
+            if isinstance(self.entry[k], six.string_types) and NOT_SUPPORTED in self.entry[k]:
                 self.entry[k] = None
 
 
@@ -127,6 +108,14 @@ class GPUStat(object):
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
 
+    @property
+    def processes(self):
+        """
+        Get the list of running processes on the GPU.
+        """
+        return list(self.entry['processes'])
+
+
     def print_to(self, fp,
                  with_colors=True,
                  show_cmd=False,
@@ -137,24 +126,24 @@ class GPUStat(object):
         # color settings
         colors = {}
         def _conditional(cond_fn, true_value, false_value,
-                         error_value=ANSIColors.GRAY):
+                         error_value=term.bold_black):
             try:
                 if cond_fn(): return true_value
                 else: return false_value
             except:
                 return error_value
 
-        colors['C0'] = ANSIColors.RESET
-        colors['C1'] = ANSIColors.CYAN
-        colors['CName'] = ANSIColors.BLUE
+        colors['C0'] = term.normal
+        colors['C1'] = term.cyan
+        colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: int(self.entry['temperature.gpu']) < 50,
-                                       ANSIColors.RED, ANSIColors.BOLD_RED)
-        colors['CMemU'] = ANSIColors.BOLD_YELLOW
-        colors['CMemT'] = ANSIColors.YELLOW
-        colors['CMemP'] = ANSIColors.YELLOW
-        colors['CUser'] = ANSIColors.GRAY
+                                       term.red, term.bold_red)
+        colors['CMemU'] = term.bold_yellow
+        colors['CMemT'] = term.yellow
+        colors['CMemP'] = term.yellow
+        colors['CUser'] = term.bold_black   # gray
         colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
-                                       ANSIColors.GREEN, ANSIColors.BOLD_GREEN)
+                                       term.green, term.bold_green)
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -176,18 +165,23 @@ class GPUStat(object):
         def process_repr(p):
             r = ''
             if not show_cmd or show_user:
-                r += "{CUser}{}{C0}".format(_repr(p['user'], '--'), **colors)
+                r += "{CUser}{}{C0}".format(_repr(p['username'], '--'), **colors)
             if show_cmd:
                 if r: r += ':'
-                r += "{C1}{}{C0}".format(_repr(p.get('comm', p['pid']), '--'), **colors)
+                r += "{C1}{}{C0}".format(_repr(p.get('command', p['pid']), '--'), **colors)
 
             if show_pid:
                 r += ("/%s" % _repr(p['pid'], '--'))
-            r += '({CMemP}{}M{C0})'.format(_repr(p['used_memory'], '?'), **colors)
+            r += '({CMemP}{}M{C0})'.format(_repr(p['gpu_memory_usage'], '?'), **colors)
             return r
 
-        for p in self.processes:
-            reps += ' ' + process_repr(p)
+        if self.entry['processes'] is not None:
+            for p in self.entry['processes']:
+                reps += ' ' + process_repr(p)
+        else:
+            # None (not available)
+            reps += ' (Not Supported)'
+
 
         fp.write(reps)
         return fp
@@ -198,24 +192,15 @@ class GPUStat(object):
 
     def jsonify(self):
         o = dict(self.entry)
-        o['processes'] = [{k: v for (k, v) in p.iteritems() if k != 'gpu_uuid'}
-                          for p in self.processes]
+        o['processes'] = [{k: v for (k, v) in p.items() if k != 'gpu_uuid'}
+                          for p in self.entry['processes']]
         return o
-
-    def add_process(self, p):
-        self.processes.append(p)
-        return self
 
 
 class GPUStatCollection(object):
 
     def __init__(self, gpu_list):
-        self.gpus = OrderedDict()
-        for g in gpu_list:
-            self.gpus[g.uuid] = g
-
-        # attach process information (owner, pid, etc.)
-        self.update_process_information()
+        self.gpus = gpu_list
 
         # attach additional system information
         self.hostname = platform.node()
@@ -223,114 +208,94 @@ class GPUStatCollection(object):
 
     @staticmethod
     def new_query():
-        # 1. get the list of gpu and status
-        gpu_query_columns = ('index', 'uuid', 'name', 'temperature.gpu',
-                             'utilization.gpu', 'memory.used', 'memory.total')
-        gpu_list = []
+        """Query the information of all the GPUs on local machine"""
 
-        smi_output = execute_process(
-            r'nvidia-smi --query-gpu={query_cols} --format=csv,noheader,nounits'.format(
-                query_cols=','.join(gpu_query_columns)
-            ))
+        N.nvmlInit()
 
-        for line in smi_output.split('\n'):
-            if not line: continue
-            query_results = line.split(',')
+        def get_gpu_info(handle):
+            """Get one GPU information specified by nvml handle"""
 
-            g = GPUStat({col_name: col_value.strip() for
-                         (col_name, col_value) in zip(gpu_query_columns, query_results)
-                         })
-            gpu_list.append(g)
+            def get_process_info(pid):
+                """Get the process information of specific pid"""
+                process = {}
+                ps_process = psutil.Process(pid=pid)
+                process['username'] = ps_process.username()
+                # cmdline returns full path; as in `ps -o comm`, get short cmdnames.
+                process['command'] = os.path.basename(ps_process.cmdline()[0])
+                # Bytes to MBytes
+                process['gpu_memory_usage'] = int(nv_process.usedGpuMemory / 1024 / 1024)
+                process['pid'] = nv_process.pid
+                return process
 
-        return GPUStatCollection(gpu_list)
+            def _decode(b):
+                if isinstance(b, bytes):
+                    return b.decode()    # for python3, to unicode
+                return b
 
-    @staticmethod
-    def running_processes():
-        # 1. collect all running GPU processes
-        gpu_query_columns = ('gpu_uuid', 'pid', 'used_memory')
-        smi_output = execute_process(
-            r'nvidia-smi --query-compute-apps={query_cols} --format=csv,noheader,nounits'.format(
-                query_cols=','.join(gpu_query_columns)
-            ))
+            name = _decode(N.nvmlDeviceGetName(handle))
+            uuid = _decode(N.nvmlDeviceGetUUID(handle))
 
-        process_entries = []
-        for line in smi_output.split('\n'):
-            if not line: continue
-            query_results = line.split(',')
-            process_entry = dict({col_name: col_value.strip() for
-                                  (col_name, col_value) in zip(gpu_query_columns, query_results)
-                                  })
-            process_entries.append(process_entry)
-
-        pid_map = {int(e['pid']) : None for e in process_entries
-                   if not 'Not Supported' in e['pid']}
-
-        # 2. map pid to username, etc.
-        if pid_map:
-            # Sometimes nvidia-smi returns non-existent process PID (see #12);
-            # To let ps exit with a non-zero return code in such cases,
-            # we always include querying PID 1 as well (but ignored).
-            pid_output = execute_process('ps -o {} -p1 -p {}'.format(
-                'pid,user:16,comm',
-                ','.join(map(str, pid_map.keys()))
-            ))
-
-            for line in pid_output.split('\n'):
-                if (not line) or 'PID' in line: continue
-                pid, user, comm = line.split()[:3]
-
-                pid = int(pid)
-                if pid <= 1: continue
-
-                pid_map[pid] = {
-                    'user' : user,
-                    'comm' : comm
-                }
-
-        # 3. add some process information to each process_entry
-        for process_entry in process_entries[:]:
-
-            if 'Not Supported' in process_entry['pid']:
-                # TODO move this stuff into somewhere appropriate
-                # such as running_processes(): process_entry = ...
-                # or introduce Process class to elegantly handle it
-                process_entry['user'] = None
-                process_entry['comm'] = None
-                process_entry['pid'] = None
-                process_entry['used_memory'] = None
-                continue
-
-            pid = int(process_entry['pid'])
-
-            if pid_map[pid] is None:
-                # !?!? this pid is listed up in nvidia-smi's query result,
-                # but actually seems not to be a valid running process. ignore!
-                process_entries.remove(process_entry)
-                continue
-
-            process_entry.update(pid_map[pid])
-
-        return process_entries
-
-    def update_process_information(self):
-        processes = self.running_processes()
-        for p in processes:
             try:
-                g = self.gpus[p['gpu_uuid']]
-            except KeyError:
-                # ignore?
-                pass
-            g.add_process(p)
-        return self
+                temperature = N.nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU)
+            except N.NVMLError:
+                memory = None  # Not supported
+
+            try:
+                memory = N.nvmlDeviceGetMemoryInfo(handle) # in Bytes
+            except N.NVMLError:
+                memory = None  # Not supported
+
+            try:
+                utilization = N.nvmlDeviceGetUtilizationRates(handle)
+            except N.NVMLError:
+                utilization = None  # Not supported
+
+            processes = []
+            try:
+                nv_processes = N.nvmlDeviceGetComputeRunningProcesses(handle)
+                # dict type is mutable
+                for nv_process in nv_processes:
+                    #TODO: could be more information such as system memory usage,
+                    # CPU percentage, create time etc.
+                    process = get_process_info(nv_process.pid)
+                    processes.append(process)
+            except N.NVMLError:
+                processes = None  # Not supported
+
+            gpu_info = {
+                'index': index,
+                'uuid': uuid,
+                'name': name,
+                'temperature.gpu': temperature,
+                'utilization.gpu': utilization.gpu if utilization else None,
+                # Convert bytes into MBytes
+                'memory.used': int(memory.used / 1024 / 1024) if memory else None,
+                'memory.total': int(memory.total / 1024 / 1024) if memory else None,
+                'processes': processes,
+            }
+            return gpu_info
+
+        # 1. get the list of gpu and status
+        gpu_list = []
+        device_count = N.nvmlDeviceGetCount()
+
+        for index in range(device_count):
+            handle = N.nvmlDeviceGetHandleByIndex(index)
+            gpu_info = get_gpu_info(handle)
+            gpu_stat = GPUStat(gpu_info)
+            gpu_list.append(gpu_stat)
+
+        N.nvmlShutdown()
+        return GPUStatCollection(gpu_list)
 
     def __len__(self):
         return len(self.gpus)
 
     def __iter__(self):
-        return iter(self.gpus.values())
+        return iter(self.gpus)
 
     def __getitem__(self, index):
-        return list(self.gpus.values())[index]
+        return self.gpus[index]
 
     def __repr__(self):
         s = 'GPUStatCollection(host=%s, [\n' % self.hostname
@@ -346,13 +311,15 @@ class GPUStatCollection(object):
                         ):
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
-        header_msg = '%(WHITE)s{hostname}%(RESET)s  {timestr}'.format(**{
+        header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
             'hostname' : self.hostname,
-            'timestr' : self.query_time.strftime(time_format)
+            'timestr' : self.query_time.strftime(time_format),
+            't' : term if not no_color \
+                       else Terminal(force_styling=None)
+        })
 
-        }) % (defaultdict(str) if no_color else ANSIColors.__dict__)
-
-        print(header_msg)
+        fp.write(header_msg)
+        fp.write('\n')
 
         # body
         gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
@@ -379,26 +346,13 @@ class GPUStatCollection(object):
             if hasattr(obj, 'isoformat'):
                 return obj.isoformat()
             else:
-                raise TypeError
+                raise TypeError(type(obj))
 
         o = self.jsonify()
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
         fp.write('\n')
         fp.flush()
-
-
-def self_test():
-    gpu_stats = GPUStatCollection.new_query()
-    print('# of GPUS:', len(gpu_stats))
-    for g in gpu_stats:
-        print(g)
-
-    process_entries = GPUStatCollection.running_processes()
-    print('---Entries---')
-    print(process_entries)
-
-    print('-------------')
 
 
 def new_query():
@@ -415,8 +369,8 @@ def print_gpustat(json=False, debug=False, **args):
     '''
     try:
         gpu_stats = GPUStatCollection.new_query()
-    except CalledProcessError:
-        sys.stderr.write('Error on calling nvidia-smi. Use --debug flag for details\n')
+    except Exception:
+        sys.stderr.write('Error on querying NVIDIA devices. Use --debug flag for details\n')
         if debug:
             import traceback
             traceback.print_exc(file=sys.stderr)

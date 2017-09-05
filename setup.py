@@ -1,13 +1,43 @@
 from setuptools import setup
-import gpustat
+import sys
+import os
+import re
+
+IS_PY_2 = (sys.version_info[0] <= 2)
+
 
 def read_readme():
     with open('README.md') as f:
         return f.read()
 
+def read_version():
+    # importing gpustat causes an ImportError :-)
+    __PATH__ = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(__PATH__, 'gpustat.py')) as f:
+        version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
+                                  f.read(), re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find __version__ string")
+
+
+install_requires = [
+    'six',
+    'nvidia-ml-py>=7.352.0' if IS_PY_2 else \
+        'nvidia-ml-py3>=7.352.0',
+    'psutil',
+    'blessings>=1.6',
+]
+
+tests_requires = [
+    'mock>=2.0.0',
+    'nose',
+    'nose-cover3'
+]
+
 setup(
     name='gpustat',
-    version=gpustat.__version__,
+    version=read_version(),
     license='MIT',
     description='An utility to monitor NVIDIA GPU status (wrapper of nvidia-smi)',
     long_description=read_readme(),
@@ -26,10 +56,10 @@ setup(
     ],
     #packages=['gpustat'],
     py_modules=['gpustat'],
-    install_requires=[
-    ],
+    install_requires=install_requires,
+    extras_require={'test': tests_requires},
+    tests_require=tests_requires,
     test_suite='nose.collector',
-    tests_require=['nose', 'nose-cover3'],
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],
     },
