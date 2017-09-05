@@ -1,13 +1,25 @@
 from setuptools import setup
 import sys
+import os
+import re
 
 IS_PY_2 = (sys.version_info[0] <= 2)
 
-import gpustat
 
 def read_readme():
     with open('README.md') as f:
         return f.read()
+
+def read_version():
+    # importing gpustat causes an ImportError :-)
+    __PATH__ = os.path.abspath(os.path.dirname(__file__))
+    with open(os.path.join(__PATH__, 'gpustat.py')) as f:
+        version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
+                                  f.read(), re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find __version__ string")
+
 
 install_requires = [
     'six',
@@ -25,7 +37,7 @@ tests_requires = [
 
 setup(
     name='gpustat',
-    version=gpustat.__version__,
+    version=read_version(),
     license='MIT',
     description='An utility to monitor NVIDIA GPU status (wrapper of nvidia-smi)',
     long_description=read_readme(),

@@ -24,7 +24,7 @@ import os.path
 import pynvml as N
 from blessings import Terminal
 
-__version__ = '0.4.0.dev'
+__version__ = '0.4.0.dev0'
 
 
 NOT_SUPPORTED = 'Not Supported'
