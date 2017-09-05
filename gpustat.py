@@ -8,7 +8,6 @@ the gpustat script :)
 """
 
 from __future__ import print_function
-from subprocess import check_output, CalledProcessError
 from datetime import datetime
 from collections import defaultdict
 from six.moves import cStringIO as StringIO
@@ -30,12 +29,6 @@ __version__ = '0.4.0.dev0'
 NOT_SUPPORTED = 'Not Supported'
 
 term = Terminal()
-
-def execute_process(command_shell):
-    stdout = check_output(command_shell, shell=True).strip()
-    if not isinstance(stdout, (str)):
-        stdout = stdout.decode()
-    return stdout
 
 
 class GPUStat(object):
@@ -114,6 +107,14 @@ class GPUStat(object):
         """
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
+
+    @property
+    def processes(self):
+        """
+        Get the list of running processes on the GPU.
+        """
+        return list(self.entry['processes'])
+
 
     def print_to(self, fp,
                  with_colors=True,
@@ -368,8 +369,8 @@ def print_gpustat(json=False, debug=False, **args):
     '''
     try:
         gpu_stats = GPUStatCollection.new_query()
-    except CalledProcessError:
-        sys.stderr.write('Error on calling nvidia-smi. Use --debug flag for details\n')
+    except Exception:
+        sys.stderr.write('Error on querying NVIDIA devices. Use --debug flag for details\n')
         if debug:
             import traceback
             traceback.print_exc(file=sys.stderr)
