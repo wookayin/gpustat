@@ -238,7 +238,7 @@ class GPUStatCollection(object):
             try:
                 temperature = N.nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU)
             except N.NVMLError:
-                memory = None  # Not supported
+                temperature = None  # Not supported
 
             try:
                 memory = N.nvmlDeviceGetMemoryInfo(handle) # in Bytes
