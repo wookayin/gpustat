@@ -257,8 +257,13 @@ class GPUStatCollection(object):
                 for nv_process in nv_processes:
                     #TODO: could be more information such as system memory usage,
                     # CPU percentage, create time etc.
-                    process = get_process_info(nv_process.pid)
-                    processes.append(process)
+                    try:
+                        process = get_process_info(nv_process.pid)
+                        processes.append(process)
+                    except psutil.NoSuchProcess:
+                        #TODO: add some reminder for NVML broken context
+                        # e.g. nvidia-smi reset  or  reboot the system
+                        pass
             except N.NVMLError:
                 processes = None  # Not supported
 

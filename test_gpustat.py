@@ -4,8 +4,11 @@ Unit or integration tests for gpustat
 
 from __future__ import print_function
 
-import unittest
 import gpustat
+
+import unittest
+import sys
+
 from collections import namedtuple
 from six.moves import cStringIO as StringIO
 
@@ -20,7 +23,8 @@ import psutil
 import pynvml
 
 
-def _configure_mock(N, Process):
+def _configure_mock(N, Process,
+                    scenario_nonexistent_pid=False):
     """
     Define mock behaviour for N: the pynvml module, and psutil.Process,
     which should be MagicMock objects from unittest.mock.
@@ -84,10 +88,14 @@ def _configure_mock(N, Process):
 
     # running process information: a bit annoying...
     mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
+    if scenario_nonexistent_pid:
+        mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
+    else:
+        mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
     N.nvmlDeviceGetComputeRunningProcesses.side_effect = _raise_ex(lambda handle: {
         mock_handles[0]: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],
         mock_handles[1]: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],
-        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
+        mock_handles[2]: mock_processes_gpu2_erratic,  # Not Supported or non-existent
     }.get(handle, RuntimeError))
 
     mock_pid_map = {   # mock information for psutil...
@@ -100,6 +108,8 @@ def _configure_mock(N, Process):
     }
 
     def _MockedProcess(pid):
+        if not pid in mock_pid_map:
+            raise psutil.NoSuchProcess(pid=pid)
         username, cmdline = mock_pid_map[pid]
         p = MagicMock()  # mocked process
         p.username.return_value = username
@@ -123,6 +133,9 @@ class TestGPUStat(unittest.TestCase):
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.N')
     def test_new_query_mocked(self, N, Process):
+        """
+        A basic functionality test, in a case where everything is just normal.
+        """
         _configure_mock(N, Process)
 
         gpustats = gpustat.new_query()
@@ -146,7 +159,21 @@ class TestGPUStat(unittest.TestCase):
 
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.N')
+    def test_new_query_mocked_nonexistent_pid(self, N, Process):
+        """
+        Test a case where nvidia query returns non-existent pids (see #16, #18)
+        """
+        _configure_mock(N, Process, scenario_nonexistent_pid=True)
+
+        gpustats = gpustat.new_query()
+        gpustats.print_formatted(fp=sys.stdout)
+
+    @mock.patch('psutil.Process')
+    @mock.patch('gpustat.N')
     def test_attributes_and_items(self, N, Process):
+        """
+        Test whether each property of `GPUStat` instance is well-defined.
+        """
         _configure_mock(N, Process)
 
         g = gpustat.new_query()[1]  # includes N/A
