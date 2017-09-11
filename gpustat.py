@@ -252,20 +252,29 @@ class GPUStatCollection(object):
 
             processes = []
             try:
-                nv_processes = N.nvmlDeviceGetComputeRunningProcesses(handle)
-                # dict type is mutable
-                for nv_process in nv_processes:
-                    #TODO: could be more information such as system memory usage,
+                nv_comp_processes = N.nvmlDeviceGetComputeRunningProcesses(handle)
+            except N.NVMLError:
+                nv_comp_processes = None  # Not supported
+            try:
+                nv_graphics_processes = N.nvmlDeviceGetGraphicsRunningProcesses(handle)
+            except N.NVMLError:
+                nv_graphics_processes = None  # Not supported
+
+            if nv_comp_processes is None and nv_graphics_processes is None:
+                processes = None   # Not supported (in both cases)
+            else:
+                nv_comp_processes = nv_comp_processes or []
+                nv_graphics_processes = nv_graphics_processes or []
+                for nv_process in (nv_comp_processes + nv_graphics_processes):
+                    # TODO: could be more information such as system memory usage,
                     # CPU percentage, create time etc.
                     try:
                         process = get_process_info(nv_process.pid)
                         processes.append(process)
                     except psutil.NoSuchProcess:
-                        #TODO: add some reminder for NVML broken context
+                        # TODO: add some reminder for NVML broken context
                         # e.g. nvidia-smi reset  or  reboot the system
                         pass
-            except N.NVMLError:
-                processes = None  # Not supported
 
             gpu_info = {
                 'index': index,

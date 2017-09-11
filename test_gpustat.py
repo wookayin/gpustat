@@ -88,6 +88,7 @@ def _configure_mock(N, Process,
 
     # running process information: a bit annoying...
     mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
+
     if scenario_nonexistent_pid:
         mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
     else:
@@ -96,6 +97,12 @@ def _configure_mock(N, Process,
         mock_handles[0]: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],
         mock_handles[1]: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],
         mock_handles[2]: mock_processes_gpu2_erratic,  # Not Supported or non-existent
+    }.get(handle, RuntimeError))
+
+    N.nvmlDeviceGetGraphicsRunningProcesses.side_effect = _raise_ex(lambda handle: {
+        mock_handles[0]: [],
+        mock_handles[1]: [],
+        mock_handles[2]: N.NVMLError_NotSupported(),
     }.get(handle, RuntimeError))
 
     mock_pid_map = {   # mock information for psutil...
