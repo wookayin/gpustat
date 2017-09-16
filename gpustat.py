@@ -397,6 +397,11 @@ def print_gpustat(json=False, debug=False, **args):
 
 
 def main():
+    # attach SIGPIPE handler to properly handle broken pipe
+    import signal
+    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+
+    # arguments to gpustat
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('--no-color', action='store_true',
