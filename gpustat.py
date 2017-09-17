@@ -23,12 +23,10 @@ import os.path
 import pynvml as N
 from blessings import Terminal
 
-__version__ = '0.4.0.dev0'
+__version__ = '0.4.0.dev1'
 
 
 NOT_SUPPORTED = 'Not Supported'
-
-term = Terminal()
 
 
 class GPUStat(object):
@@ -124,11 +122,12 @@ class GPUStat(object):
 
 
     def print_to(self, fp,
-                 with_colors=True,
+                 with_colors=True,    # deprecated arg
                  show_cmd=False,
                  show_user=False,
                  show_pid=False,
-                 gpuname_width=16
+                 gpuname_width=16,
+                 term=Terminal(),
                  ):
         # color settings
         colors = {}
@@ -322,17 +321,28 @@ class GPUStatCollection(object):
 
     # --- Printing Functions ---
 
-    def print_formatted(self, fp=sys.stdout, no_color=False,
+    def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
                         gpuname_width=16,
                         ):
+        # ANSI color configuration
+        if force_color and no_color:
+            raise ValueError("--color and --no_color can't be used at the same time")
+
+        if force_color:
+            t_color = Terminal(kind='linux', force_styling=True)
+        elif no_color:
+            t_color = Terminal(force_styling=None)
+        else:
+            t_color = Terminal()   # auto, depending on isatty
+
         # header
         time_format = locale.nl_langinfo(locale.D_T_FMT)
+
         header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
             'hostname' : self.hostname,
             'timestr' : self.query_time.strftime(time_format),
-            't' : term if not no_color \
-                       else Terminal(force_styling=None)
+            't' : t_color,
         })
 
         fp.write(header_msg)
@@ -342,11 +352,11 @@ class GPUStatCollection(object):
         gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
         for g in self:
             g.print_to(fp,
-                       with_colors=not no_color,
                        show_cmd=show_cmd,
                        show_user=show_user,
                        show_pid=show_pid,
-                       gpuname_width=gpuname_width)
+                       gpuname_width=gpuname_width,
+                       term=t_color)
             fp.write('\n')
 
         fp.flush()
@@ -407,8 +417,13 @@ def main():
     # arguments to gpustat
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--no-color', action='store_true',
+
+    parser_color = parser.add_mutually_exclusive_group()
+    parser_color.add_argument('--force-color', '--color', action='store_true',
+                        help='Force to output with colors')
+    parser_color.add_argument('--no-color', action='store_true',
                         help='Suppress colored output')
+
     parser.add_argument('-c', '--show-cmd', action='store_true',
                         help='Display cmd name of running process')
     parser.add_argument('-u', '--show-user', action='store_true',

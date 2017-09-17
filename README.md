@@ -16,7 +16,8 @@ Usage
 
 Options:
 
-* `--no-color`        : Suppress color (by default, color is enabled)
+* `--color`           : Force colored output (even when stdout is not a tty)
+* `--no-color`        : Suppress color (by default, color is automatically enabled)
 * `-u`, `--show-user` : Display username of the process owner
 * `-c`, `--show-cmd`  : Display the process name
 * `-p`, `--show-pid`  : Display PID of the process
@@ -24,7 +25,7 @@ Options:
 
 ### Tips
 
-- To periodically watch, try `watch --color -n1.0 gpustat` (built-in watch support will be added soon).
+- To periodically watch, try `watch --color -n1.0 gpustat --color` (built-in watch support will be added soon).
 - Running `nvidia-smi daemon` (root privilege required) will make the query much **faster**.
 - The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
   while CUDA differently assigns the fastest GPU with the lowest ID by default.
