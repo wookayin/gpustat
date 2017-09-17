@@ -186,10 +186,6 @@ class GPUStat(object):
         fp.write(reps)
         return fp
 
-    @property
-    def uuid(self):
-        return self.entry['uuid']
-
     def jsonify(self):
         o = dict(self.entry)
         o['processes'] = [{k: v for (k, v) in p.items() if k != 'gpu_uuid'}
