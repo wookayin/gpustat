@@ -11,6 +11,7 @@ from __future__ import print_function
 from datetime import datetime
 from collections import defaultdict
 from six.moves import cStringIO as StringIO
+from time import sleep
 
 import six
 import sys
@@ -404,6 +405,12 @@ def main():
     # arguments to gpustat
     import argparse
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('delay', type=float, default=0, nargs='?',
+                        help='Delay between updates (only once if unspecified)')
+    parser.add_argument('count', type=int, default=0, nargs='?',
+                        help='Number of updates (infinite if unspecified)')
+    
     parser.add_argument('--no-color', action='store_true',
                         help='Suppress colored output')
     parser.add_argument('-c', '--show-cmd', action='store_true',
@@ -421,8 +428,22 @@ def main():
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
     args = parser.parse_args()
+    w_args = vars(args)
+    delay = w_args.pop('delay')
+    count = w_args.pop('count')
 
-    print_gpustat(**vars(args))
+    if delay != 0:
+        if count != 0:
+            for i in range(0,count):
+                print_gpustat(**w_args)
+                sleep(delay)
+        else:
+            while True:
+                print_gpustat(**w_args)
+                sleep(delay)                
+    else:
+        print_gpustat(**w_args)
+   
 
 if __name__ == '__main__':
     main()
