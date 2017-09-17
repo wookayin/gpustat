@@ -54,6 +54,13 @@ class GPUStat(object):
         return self.entry[key]
 
     @property
+    def index(self):
+        """
+        Returns the index of GPU (as in nvidia-smi).
+        """
+        return self.entry['index']
+
+    @property
     def uuid(self):
         """
         Returns the uuid returned by nvidia-smi,
