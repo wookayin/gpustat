@@ -20,7 +20,7 @@ Options:
 * `-u`, `--show-user` : Display username of the process owner
 * `-c`, `--show-cmd`  : Display the process name
 * `-p`, `--show-pid`  : Display PID of the process
-* `--json`            : JSON Output (Experimental, #10)
+* `--json`            : JSON Output (Experimental, [#10][gh-issue-10])
 
 ### Tips
 
@@ -40,7 +40,7 @@ Quick Installation
 Install from [PyPI][pypi_gpustat]:
 
 ```
-sudo pip install gpustat
+pip install gpustat
 ```
 
 To install the latest version (master branch) via pip:
@@ -49,14 +49,17 @@ To install the latest version (master branch) via pip:
 pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
-If you don't have root privilege, you can try `pip install --user` as well.
-Please note that from v0.4, `gpustat.py` is no more a zero-dependency executable.
+If you don't have root privilege, please try to install on user namespace: `pip install --user`.
+Note that from v0.4, `gpustat.py` is no more a zero-dependency executable.
+However, in rare cases you'll need a single executable script (legacy), you can also try:
 
 ```
-sudo wget https://git.io/gpustat.py -O /usr/local/bin/gpustat && sudo chmod +x /usr/local/bin/gpustat
+wget https://raw.githubusercontent.com/wookayin/gpustat/v0.3.2/gpustat.py -O ~/.local/bin/gpustat
+chmod +x ~/.local/bin/gpustat    # Assuming ~/.local/bin is in your $PATH
 ```
 
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
+[gh-issue-10]: https://github.com/wookayin/gpustat/issues/10
 
 
 License

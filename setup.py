@@ -39,7 +39,7 @@ setup(
     name='gpustat',
     version=read_version(),
     license='MIT',
-    description='An utility to monitor NVIDIA GPU status (wrapper of nvidia-smi)',
+    description='An utility to monitor NVIDIA GPU status and usage',
     long_description=read_readme(),
     url='https://github.com/wookayin/gpustat',
     author='Jongwook Choi',
