@@ -72,6 +72,18 @@ def _configure_mock(N, Process,
         mock_handles[2]: 71,
     }.get(handle, RuntimeError))
 
+    N.nvmlDeviceGetPowerUsage = _raise_ex(lambda handle: {
+        mock_handles[0]: 125000,
+        mock_handles[1]: 100000,
+        mock_handles[2]: 250000,
+    }.get(handle, RuntimeError))
+
+    N.nvmlDeviceGetEnforcedPowerLimit = _raise_ex(lambda handle: {
+        mock_handles[0]: 250000,
+        mock_handles[1]: 250000,
+        mock_handles[2]: 250000,
+    }.get(handle, RuntimeError))
+
     mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
     N.nvmlDeviceGetMemoryInfo.side_effect = _raise_ex(lambda handle: {
         mock_handles[0]: mock_memory_t(total=12883853312, used=8000*MB),
@@ -147,7 +159,7 @@ class TestGPUStat(unittest.TestCase):
 
         gpustats = gpustat.new_query()
         fp = StringIO()
-        gpustats.print_formatted(fp=fp, no_color=False, show_user=True, show_cmd=True, show_pid=True)
+        gpustats.print_formatted(fp=fp, no_color=False, show_user=True, show_cmd=True, show_pid=True, show_power=True)
 
         result = fp.getvalue()
         print(result)
@@ -157,9 +169,9 @@ class TestGPUStat(unittest.TestCase):
         unescaped = '\n'.join(unescaped.split('\n')[1:])
 
         expected = """\
-[0] GeForce GTX TITAN 0 | 80'C,  76 % |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
-[1] GeForce GTX TITAN 1 | 36'C,   0 % |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71'C,  ?? % |     0 / 12189 MB | (Not Supported)
+[0] GeForce GTX TITAN 0 | 80'C,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[1] GeForce GTX TITAN 1 | 36'C,   0 %,  100 / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 / 250 W |     0 / 12189 MB | (Not Supported)
 """
         self.maxDiff = 4096
         self.assertEqual(unescaped, expected)
