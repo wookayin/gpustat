@@ -144,7 +144,7 @@ class GPUStat(object):
                  show_cmd=False,
                  show_user=False,
                  show_pid=False,
-                 show_power=False,
+                 show_power=None,
                  gpuname_width=16,
                  term=Terminal(),
                  ):
@@ -169,8 +169,9 @@ class GPUStat(object):
         colors['CUser'] = term.bold_black   # gray
         colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
                                        term.green, term.bold_green)
-        colors['CPowU'] = term.bold_red
-        colors['CPowL'] = term.red
+        colors['CPowU'] = _conditional(lambda: float(self.entry['power.draw']) / self.entry['enforced.power.limit'] < 0.4,
+                                       term.magenta, term.bold_magenta)
+        colors['CPowL'] = term.magenta
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -184,9 +185,15 @@ class GPUStat(object):
         # we want power use optional, but if deserves being grouped with temperature and utilization
         reps = "%(C1)s[{entry[index]}]%(C0)s %(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
                "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, %(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
-               
+
         if show_power:
-            reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s / %(CPowL)s{entry[enforced.power.limit]:>3}%(C0)s W" 
+            reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
+            if show_power == True or 'limit' in show_power:
+                reps += "/ %(CPowL)s{entry[enforced.power.limit]:>3}%(C0)s "
+                reps += "%(CPowL)sW%(C0)s"
+            else:
+                reps += "%(CPowU)sW%(C0)s"
+
         reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
         reps = (reps) % colors
         reps = reps.format(entry={k: _repr(v) for (k, v) in self.entry.items()},
@@ -360,7 +367,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        show_power=False, gpuname_width=16,
+                        show_power=None, gpuname_width=16,
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -468,8 +475,9 @@ def main():
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
-    parser.add_argument('-P', '--show-power', action='store_true',
-                        help='Show GPU power usage (and limit)')
+    parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
+                        choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
+                        help='Show GPU power usage or draw (and/or limit)')
     parser.add_argument('--gpuname-width', type=int, default=16,
                         help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('--json', action='store_true', default=False,
