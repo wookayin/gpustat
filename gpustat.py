@@ -255,7 +255,11 @@ class GPUStatCollection(object):
                 ps_process = psutil.Process(pid=pid)
                 process['username'] = ps_process.username()
                 # cmdline returns full path; as in `ps -o comm`, get short cmdnames.
-                process['command'] = os.path.basename(ps_process.cmdline()[0])
+                _cmdline = ps_process.cmdline()
+                if not _cmdline:   # sometimes, zombie or unknown (e.g. [kworker/8:2H])
+                    process['command'] = '?'
+                else:
+                    process['command'] = os.path.basename(_cmdline[0])
                 # Bytes to MBytes
                 process['gpu_memory_usage'] = int(nv_process.usedGpuMemory / 1024 / 1024)
                 process['pid'] = nv_process.pid
@@ -441,7 +445,7 @@ def print_gpustat(json=False, debug=False, **args):
     '''
     try:
         gpu_stats = GPUStatCollection.new_query()
-    except Exception:
+    except Exception as e:
         sys.stderr.write('Error on querying NVIDIA devices. Use --debug flag for details\n')
         if debug:
             import traceback
