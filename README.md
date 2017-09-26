@@ -16,12 +16,13 @@ Usage
 
 Options:
 
-* `--color`           : Force colored output (even when stdout is not a tty)
-* `--no-color`        : Suppress color (by default, color is automatically enabled)
-* `-u`, `--show-user` : Display username of the process owner
-* `-c`, `--show-cmd`  : Display the process name
-* `-p`, `--show-pid`  : Display PID of the process
-* `--json`            : JSON Output (Experimental, [#10][gh-issue-10])
+* `--color`            : Force colored output (even when stdout is not a tty)
+* `--no-color`         : Suppress colored output
+* `-u`, `--show-user`  : Display username of the process owner
+* `-c`, `--show-cmd`   : Display the process name
+* `-p`, `--show-pid`   : Display PID of the process
+* `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
+* `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
 
 ### Tips
 
