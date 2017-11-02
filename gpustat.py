@@ -88,12 +88,19 @@ class GPUStat(object):
         return int(self.entry['memory.used'])
 
     @property
-    def memory_available(self):
+    def memory_free(self):
         """
-        Returns the available memory (in MB) as an integer.
+        Returns the free (available) memory (in MB) as an integer.
         """
         v = self.memory_total - self.memory_used
         return max(v, 0)
+
+    @property
+    def memory_available(self):
+        """
+        Returns the available memory (in MB) as an integer. Alias of memory_free.
+        """
+        return self.memory_free
 
     @property
     def temperature(self):
@@ -469,9 +476,9 @@ def main():
 
     parser_color = parser.add_mutually_exclusive_group()
     parser_color.add_argument('--force-color', '--color', action='store_true',
-                        help='Force to output with colors')
+                              help='Force to output with colors')
     parser_color.add_argument('--no-color', action='store_true',
-                        help='Suppress colored output')
+                              help='Suppress colored output')
 
     parser.add_argument('-c', '--show-cmd', action='store_true',
                         help='Display cmd name of running process')
