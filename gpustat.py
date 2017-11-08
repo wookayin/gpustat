@@ -9,7 +9,6 @@ the gpustat script :)
 
 from __future__ import print_function
 from datetime import datetime
-from collections import defaultdict
 from six.moves import cStringIO as StringIO
 
 import six
@@ -465,7 +464,10 @@ def print_gpustat(json=False, debug=False, **args):
         gpu_stats.print_formatted(sys.stdout, **args)
 
 
-def main():
+def main(*argv):
+    if not argv:
+        argv = list(sys.argv)
+
     # attach SIGPIPE handler to properly handle broken pipe
     import signal
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -497,9 +499,9 @@ def main():
                         help='Allow to print additional informations for debugging.')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
-    args = parser.parse_args()
+    args = parser.parse_args(argv[1:])
 
     print_gpustat(**vars(args))
 
 if __name__ == '__main__':
-    main()
+    main(*sys.argv)

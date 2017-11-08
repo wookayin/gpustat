@@ -22,7 +22,7 @@ def read_version():
 
 
 install_requires = [
-    'six',
+    'six>=1.7',
     'nvidia-ml-py>=7.352.0' if IS_PY_2 else \
         'nvidia-ml-py3>=7.352.0',
     'psutil',

@@ -138,6 +138,19 @@ def _configure_mock(N, Process,
 
 
 
+MOCK_EXPECTED_OUTPUT_DEFAULT = """\
+[0] GeForce GTX TITAN 0 | 80'C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
+[1] GeForce GTX TITAN 1 | 36'C,   0 % |  9000 / 12189 MB | user1(3000M) user3(6000M)
+[2] GeForce GTX TITAN 2 | 71'C,  ?? % |     0 / 12189 MB | (Not Supported)
+"""
+
+MOCK_EXPECTED_OUTPUT_FULL = """\
+[0] GeForce GTX TITAN 0 | 80'C,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[1] GeForce GTX TITAN 1 | 36'C,   0 %,  100 / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 / 250 W |     0 / 12189 MB | (Not Supported)
+"""
+
+
 MB = 1024 * 1024
 
 def remove_ansi_codes(s):
@@ -168,13 +181,8 @@ class TestGPUStat(unittest.TestCase):
         # remove first line (header)
         unescaped = '\n'.join(unescaped.split('\n')[1:])
 
-        expected = """\
-[0] GeForce GTX TITAN 0 | 80'C,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
-[1] GeForce GTX TITAN 1 | 36'C,   0 %,  100 / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 / 250 W |     0 / 12189 MB | (Not Supported)
-"""
         self.maxDiff = 4096
-        self.assertEqual(unescaped, expected)
+        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL)
 
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.N')
@@ -212,6 +220,32 @@ class TestGPUStat(unittest.TestCase):
         print("temperature : %d" % (g.temperature))
         print("utilization : %s" % (g.utilization))
 
+
+    @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
+    @mock.patch('psutil.Process')
+    @mock.patch('gpustat.N')
+    def test_args_endtoend(self, N, Process):
+        """
+        End-to-end testing given command line args.
+        """
+        _configure_mock(N, Process)
+
+        def capture_output(*args):
+            f = StringIO()
+            import contextlib
+
+            with contextlib.redirect_stdout(f):  # requires python 3.4+
+                try:
+                    gpustat.main(*args)
+                except SystemExit:
+                    raise AssertionError("Argparse failed (see above error message)")
+            return f.getvalue()
+
+        s = capture_output('gpustat', )
+        unescaped = remove_ansi_codes(s)
+        unescaped = '\n'.join(unescaped.split('\n')[1:])   # remove first line (header)
+        self.maxDiff = 4096
+        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_DEFAULT)
 
 
 if __name__ == '__main__':
