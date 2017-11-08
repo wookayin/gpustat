@@ -1,4 +1,4 @@
-six
+six>=1.7
 nvidia-ml-py; python_version <= '2.7'
 nvidia-ml-py3; python_version >= '3.0'
 psutil
