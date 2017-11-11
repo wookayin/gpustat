@@ -247,6 +247,9 @@ class TestGPUStat(unittest.TestCase):
         self.maxDiff = 4096
         self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_DEFAULT)
 
+        s = capture_output('gpustat', '--no-header')
+        self.assertIn("[0]", s.split('\n')[0])
+
 
 if __name__ == '__main__':
     unittest.main()

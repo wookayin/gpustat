@@ -378,6 +378,7 @@ class GPUStatCollection(object):
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
                         show_power=None, gpuname_width=16,
+                        show_header=True,
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -391,16 +392,17 @@ class GPUStatCollection(object):
             t_color = Terminal()   # auto, depending on isatty
 
         # header
-        time_format = locale.nl_langinfo(locale.D_T_FMT)
+        if show_header:
+            time_format = locale.nl_langinfo(locale.D_T_FMT)
 
-        header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
-            'hostname' : self.hostname,
-            'timestr' : self.query_time.strftime(time_format),
-            't' : t_color,
-        })
+            header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
+                'hostname' : self.hostname,
+                'timestr' : self.query_time.strftime(time_format),
+                't' : t_color,
+            })
 
-        fp.write(header_msg)
-        fp.write('\n')
+            fp.write(header_msg)
+            fp.write('\n')
 
         # body
         gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
@@ -491,6 +493,8 @@ def main(*argv):
     parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
                         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
                         help='Show GPU power usage or draw (and/or limit)')
+    parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
+                        help='Suppress header message')
     parser.add_argument('--gpuname-width', type=int, default=16,
                         help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('--json', action='store_true', default=False,
