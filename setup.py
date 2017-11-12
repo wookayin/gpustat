@@ -31,8 +31,7 @@ install_requires = [
 
 tests_requires = [
     'mock>=2.0.0',
-    'nose',
-    'nose-cover3'
+    'pytest',
 ]
 
 setup(
@@ -58,8 +57,8 @@ setup(
     py_modules=['gpustat'],
     install_requires=install_requires,
     extras_require={'test': tests_requires},
+    setup_requires=['pytest-runner'],
     tests_require=tests_requires,
-    test_suite='nose.collector',
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],
     },
