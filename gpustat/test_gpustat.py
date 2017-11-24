@@ -3,6 +3,7 @@ Unit or integration tests for gpustat
 """
 
 from __future__ import print_function
+from __future__ import absolute_import
 
 import gpustat
 
@@ -163,7 +164,18 @@ def remove_ansi_codes(s):
 class TestGPUStat(unittest.TestCase):
 
     @mock.patch('psutil.Process')
-    @mock.patch('gpustat.N')
+    @mock.patch('gpustat.core.N')
+    def test_main(self, N, Process):
+        """
+        Test whether gpustat.main() works well. The behavior is mocked
+        exactly as in test_new_query_mocked().
+        """
+        _configure_mock(N, Process)
+        sys.argv = ['gpustat']
+        gpustat.main()
+
+    @mock.patch('psutil.Process')
+    @mock.patch('gpustat.core.N')
     def test_new_query_mocked(self, N, Process):
         """
         A basic functionality test, in a case where everything is just normal.
@@ -185,7 +197,7 @@ class TestGPUStat(unittest.TestCase):
         self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL)
 
     @mock.patch('psutil.Process')
-    @mock.patch('gpustat.N')
+    @mock.patch('gpustat.core.N')
     def test_new_query_mocked_nonexistent_pid(self, N, Process):
         """
         Test a case where nvidia query returns non-existent pids (see #16, #18)
@@ -196,7 +208,7 @@ class TestGPUStat(unittest.TestCase):
         gpustats.print_formatted(fp=sys.stdout)
 
     @mock.patch('psutil.Process')
-    @mock.patch('gpustat.N')
+    @mock.patch('gpustat.core.N')
     def test_attributes_and_items(self, N, Process):
         """
         Test whether each property of `GPUStat` instance is well-defined.
@@ -223,7 +235,7 @@ class TestGPUStat(unittest.TestCase):
 
     @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
     @mock.patch('psutil.Process')
-    @mock.patch('gpustat.N')
+    @mock.patch('gpustat.core.N')
     def test_args_endtoend(self, N, Process):
         """
         End-to-end testing given command line args.
