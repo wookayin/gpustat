@@ -385,7 +385,7 @@ class GPUStatCollection(object):
             raise ValueError("--color and --no_color can't be used at the same time")
 
         if force_color:
-            t_color = Terminal(kind='linux', force_styling=True)
+            t_color = Terminal(kind='xterm-color', force_styling=True)
         elif no_color:
             t_color = Terminal(force_styling=None)
         else:
