@@ -10,6 +10,7 @@ from .__main__ import print_gpustat, main
 
 
 __all__ = (
+    '__version__',
     'GPUStat', 'GPUStatCollection',
     'new_query',
     'print_gpustat', 'main',
