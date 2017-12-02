@@ -79,14 +79,14 @@ def _configure_mock(N, Process,
 
     N.nvmlDeviceGetPowerUsage = _raise_ex(lambda handle: {
         mock_handles[0]: 125000,
-        mock_handles[1]: 100000,
+        mock_handles[1]: N.NVMLError_NotSupported(),  # Not Supported
         mock_handles[2]: 250000,
     }.get(handle, RuntimeError))
 
     N.nvmlDeviceGetEnforcedPowerLimit = _raise_ex(lambda handle: {
         mock_handles[0]: 250000,
         mock_handles[1]: 250000,
-        mock_handles[2]: 250000,
+        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
     }.get(handle, RuntimeError))
 
     mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
@@ -151,8 +151,8 @@ MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
 [0] GeForce GTX TITAN 0 | 80'C,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
-[1] GeForce GTX TITAN 1 | 36'C,   0 %,  100 / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 / 250 W |     0 / 12189 MB | (Not Supported)
+[1] GeForce GTX TITAN 1 | 36'C,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """
 
 

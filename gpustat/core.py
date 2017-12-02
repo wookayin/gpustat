@@ -337,7 +337,7 @@ class GPUStatCollection(object):
                 'temperature.gpu': temperature,
                 'utilization.gpu': utilization.gpu if utilization else None,
                 'power.draw': int(power / 1000) if power is not None else None,
-                'enforced.power.limit': int(power_limit / 1000) if power is not None else None,
+                'enforced.power.limit': int(power_limit / 1000) if power_limit is not None else None,
                 # Convert bytes into MBytes
                 'memory.used': int(memory.used / 1024 / 1024) if memory else None,
                 'memory.total': int(memory.total / 1024 / 1024) if memory else None,
