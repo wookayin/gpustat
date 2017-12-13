@@ -3,12 +3,15 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
+import time
+
+from blessings import Terminal
 
 from gpustat import __version__
 from .core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **args):
+def print_gpustat(json=False, debug=False, clear_term=False, **args):
     '''
     Display the GPU query results into standard output.
     '''
@@ -24,7 +27,7 @@ def print_gpustat(json=False, debug=False, **args):
     if json:
         gpu_stats.print_json(sys.stdout)
     else:
-        gpu_stats.print_formatted(sys.stdout, **args)
+        gpu_stats.print_formatted(sys.stdout, clear_term=clear_term, **args)
 
 
 def main(*argv):
@@ -54,6 +57,8 @@ def main(*argv):
     parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
                         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
                         help='Show GPU power usage or draw (and/or limit)')
+    parser.add_argument('-i', '--interval', type=int, default=0,
+                        help='Infinite update GPU stats with interval in seconds')
     parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
                         help='Suppress header message')
     parser.add_argument('--gpuname-width', type=int, default=16,
@@ -66,7 +71,17 @@ def main(*argv):
                         version=('gpustat %s' % __version__))
     args = parser.parse_args(argv[1:])
 
-    print_gpustat(**vars(args))
+    if args.interval > 0:
+        term = Terminal()
+        with term.fullscreen():
+            while 1:
+                try:
+                    print_gpustat(clear_term=True, **vars(args))
+                    time.sleep(args.interval)
+                except KeyboardInterrupt as kb:
+                    exit(0)
+    else:
+        print_gpustat(**vars(args))
 
 
 if __name__ == '__main__':
