@@ -76,8 +76,12 @@ def main(*argv):
         with term.fullscreen():
             while 1:
                 try:
+                    query_start = time.time()
                     print_gpustat(clear_term=True, **vars(args))
-                    time.sleep(args.interval)
+                    query_duration = time.time() - query_start
+                    sleep_duration = args.interval - query_duration
+                    if sleep_duration > 0:
+                        time.sleep(sleep_duration)
                 except KeyboardInterrupt as kb:
                     exit(0)
     else:
