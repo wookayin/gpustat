@@ -17,8 +17,13 @@ def print_gpustat(json=False, debug=False, **args):
     except Exception as e:
         sys.stderr.write('Error on querying NVIDIA devices. Use --debug flag for details\n')
         if debug:
-            import traceback
-            traceback.print_exc(file=sys.stderr)
+            try:
+                import traceback
+                traceback.print_exc(file=sys.stderr)
+            except:
+                # NVMLError can't be processed by traceback: https://bugs.python.org/issue28603
+                # as a workaround, simply re-throw the exception
+                raise e
         sys.exit(1)
 
     if json:
