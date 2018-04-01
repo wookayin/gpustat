@@ -9,6 +9,8 @@ Just *less* than nvidia-smi?
 
 ![Screenshot: gpustat -cp](screenshot.png)
 
+NOTE: This works with NVIDIA Graphics Devices only, no AMD support as of now. Contributions are welcome!
+
 Usage
 -----
 
