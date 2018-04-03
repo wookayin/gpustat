@@ -18,7 +18,6 @@ import platform
 import sys
 from datetime import datetime
 
-import six
 from six.moves import cStringIO as StringIO
 
 import psutil
@@ -26,19 +25,17 @@ import pynvml as N
 from blessings import Terminal
 
 NOT_SUPPORTED = 'Not Supported'
+MB = 1024 * 1024
 
 
 class GPUStat(object):
 
     def __init__(self, entry):
         if not isinstance(entry, dict):
-            raise TypeError('entry should be a dict, {} given'.format(type(entry)))
+            raise TypeError(
+                'entry should be a dict, {} given'.format(type(entry))
+            )
         self.entry = entry
-
-        # Handle '[Not Supported] for old GPU cards (#6)
-        for k in self.entry.keys():
-            if isinstance(self.entry[k], six.string_types) and NOT_SUPPORTED in self.entry[k]:
-                self.entry[k] = None
 
     def __repr__(self):
         return self.print_to(StringIO()).getvalue()
@@ -96,7 +93,8 @@ class GPUStat(object):
     @property
     def memory_available(self):
         """
-        Returns the available memory (in MB) as an integer. Alias of memory_free.
+        Returns the available memory (in MB) as an integer.
+        Alias of memory_free.
         """
         return self.memory_free
 
@@ -141,8 +139,7 @@ class GPUStat(object):
         """
         Get the list of running processes on the GPU.
         """
-        return list(self.entry['processes'])
-
+        return self.entry['processes']
 
     def print_to(self, fp,
                  with_colors=True,    # deprecated arg
@@ -159,24 +156,25 @@ class GPUStat(object):
         def _conditional(cond_fn, true_value, false_value,
                          error_value=term.bold_black):
             try:
-                if cond_fn(): return true_value
-                else: return false_value
-            except:
+                return cond_fn() and true_value or false_value
+            except Exception:
                 return error_value
 
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
         colors['CName'] = term.blue
-        colors['CTemp'] = _conditional(lambda: int(self.entry['temperature.gpu']) < 50,
+        colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
         colors['CMemU'] = term.bold_yellow
         colors['CMemT'] = term.yellow
         colors['CMemP'] = term.yellow
         colors['CUser'] = term.bold_black   # gray
-        colors['CUtil'] = _conditional(lambda: int(self.entry['utilization.gpu']) < 30,
+        colors['CUtil'] = _conditional(lambda: self.utilization < 30,
                                        term.green, term.bold_green)
-        colors['CPowU'] = _conditional(lambda: float(self.entry['power.draw']) / self.entry['enforced.power.limit'] < 0.4,
-                                       term.magenta, term.bold_magenta)
+        colors['CPowU'] = _conditional(
+            lambda: float(self.power_draw) / self.power_limit < 0.4,
+            term.magenta, term.bold_magenta
+        )
         colors['CPowL'] = term.magenta
 
         if not with_colors:
@@ -184,13 +182,15 @@ class GPUStat(object):
                 colors[k] = ''
 
         def _repr(v, none_value='??'):
-            if v is None: return none_value
-            else: return str(v)
+            return none_value if v is None else v
 
         # build one-line display information
-        # we want power use optional, but if deserves being grouped with temperature and utilization
-        reps = "%(C1)s[{entry[index]}]%(C0)s %(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
-               "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, %(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
+        # we want power use optional, but if deserves being grouped with
+        # temperature and utilization
+        reps = "%(C1)s[{entry[index]}]%(C0)s " \
+            "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
+            "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, " \
+            "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
         if show_power:
             reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
@@ -200,31 +200,40 @@ class GPUStat(object):
             else:
                 reps += "%(CPowU)sW%(C0)s"
 
-        reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s / %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
+        reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s " \
+            "/ %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
         reps = (reps) % colors
-        reps = reps.format(entry={k: _repr(v) for (k, v) in self.entry.items()},
+        reps = reps.format(entry={k: _repr(v) for k, v in self.entry.items()},
                            gpuname_width=gpuname_width)
         reps += " |"
 
         def process_repr(p):
             r = ''
             if not show_cmd or show_user:
-                r += "{CUser}{}{C0}".format(_repr(p['username'], '--'), **colors)
+                r += "{CUser}{}{C0}".format(
+                    _repr(p['username'], '--'), **colors
+                )
             if show_cmd:
-                if r: r += ':'
-                r += "{C1}{}{C0}".format(_repr(p.get('command', p['pid']), '--'), **colors)
+                if r:
+                    r += ':'
+                r += "{C1}{}{C0}".format(
+                    _repr(p.get('command', p['pid']), '--'), **colors
+                )
 
             if show_pid:
                 r += ("/%s" % _repr(p['pid'], '--'))
-            r += '({CMemP}{}M{C0})'.format(_repr(p['gpu_memory_usage'], '?'), **colors)
+            r += '({CMemP}{}M{C0})'.format(
+                _repr(p['gpu_memory_usage'], '?'), **colors
+            )
             return r
 
-        if self.entry['processes'] is not None:
-            for p in self.entry['processes']:
+        processes = self.entry['processes']
+        if processes:
+            for p in processes:
                 reps += ' ' + process_repr(p)
         else:
             # None (not available)
-            reps += ' (Not Supported)'
+            reps += ' ({})'.format(NOT_SUPPORTED)
 
         fp.write(reps)
         return fp
@@ -259,14 +268,16 @@ class GPUStatCollection(object):
                 process = {}
                 ps_process = psutil.Process(pid=nv_process.pid)
                 process['username'] = ps_process.username()
-                # cmdline returns full path; as in `ps -o comm`, get short cmdnames.
+                # cmdline returns full path;
+                # as in `ps -o comm`, get short cmdnames.
                 _cmdline = ps_process.cmdline()
-                if not _cmdline:   # sometimes, zombie or unknown (e.g. [kworker/8:2H])
+                if not _cmdline:
+                    # sometimes, zombie or unknown (e.g. [kworker/8:2H])
                     process['command'] = '?'
                 else:
                     process['command'] = os.path.basename(_cmdline[0])
                 # Bytes to MBytes
-                process['gpu_memory_usage'] = int(nv_process.usedGpuMemory / 1024 / 1024)
+                process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
                 process['pid'] = nv_process.pid
                 return process
 
@@ -279,12 +290,14 @@ class GPUStatCollection(object):
             uuid = _decode(N.nvmlDeviceGetUUID(handle))
 
             try:
-                temperature = N.nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU)
+                temperature = N.nvmlDeviceGetTemperature(
+                    handle, N.NVML_TEMPERATURE_GPU
+                )
             except N.NVMLError:
                 temperature = None  # Not supported
 
             try:
-                memory = N.nvmlDeviceGetMemoryInfo(handle) # in Bytes
+                memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
             except N.NVMLError:
                 memory = None  # Not supported
 
@@ -295,39 +308,39 @@ class GPUStatCollection(object):
 
             try:
                 power = N.nvmlDeviceGetPowerUsage(handle)
-            except:
+            except N.NVMLError:
                 power = None
 
             try:
                 power_limit = N.nvmlDeviceGetEnforcedPowerLimit(handle)
-            except:
+            except N.NVMLError:
                 power_limit = None
 
             processes = []
             try:
-                nv_comp_processes = N.nvmlDeviceGetComputeRunningProcesses(handle)
+                nv_comp_processes = \
+                    N.nvmlDeviceGetComputeRunningProcesses(handle)
             except N.NVMLError:
                 nv_comp_processes = None  # Not supported
             try:
-                nv_graphics_processes = N.nvmlDeviceGetGraphicsRunningProcesses(handle)
+                nv_graphics_processes = \
+                    N.nvmlDeviceGetGraphicsRunningProcesses(handle)
             except N.NVMLError:
                 nv_graphics_processes = None  # Not supported
 
-            if nv_comp_processes is None and nv_graphics_processes is None:
-                processes = None   # Not supported (in both cases)
-            else:
-                nv_comp_processes = nv_comp_processes or []
-                nv_graphics_processes = nv_graphics_processes or []
-                for nv_process in (nv_comp_processes + nv_graphics_processes):
-                    # TODO: could be more information such as system memory usage,
-                    # CPU percentage, create time etc.
-                    try:
-                        process = get_process_info(nv_process)
-                        processes.append(process)
-                    except psutil.NoSuchProcess:
-                        # TODO: add some reminder for NVML broken context
-                        # e.g. nvidia-smi reset  or  reboot the system
-                        pass
+            processes = []
+            nv_comp_processes = nv_comp_processes or []
+            nv_graphics_processes = nv_graphics_processes or []
+            for nv_process in nv_comp_processes + nv_graphics_processes:
+                # TODO: could be more information such as system memory usage,
+                # CPU percentage, create time etc.
+                try:
+                    process = get_process_info(nv_process)
+                    processes.append(process)
+                except psutil.NoSuchProcess:
+                    # TODO: add some reminder for NVML broken context
+                    # e.g. nvidia-smi reset  or  reboot the system
+                    pass
 
             index = N.nvmlDeviceGetIndex(handle)
             gpu_info = {
@@ -336,11 +349,12 @@ class GPUStatCollection(object):
                 'name': name,
                 'temperature.gpu': temperature,
                 'utilization.gpu': utilization.gpu if utilization else None,
-                'power.draw': int(power / 1000) if power is not None else None,
-                'enforced.power.limit': int(power_limit / 1000) if power_limit is not None else None,
+                'power.draw': power // 1000 if power is not None else None,
+                'enforced.power.limit': power_limit // 1000
+                if power_limit is not None else None,
                 # Convert bytes into MBytes
-                'memory.used': int(memory.used / 1024 / 1024) if memory else None,
-                'memory.total': int(memory.total / 1024 / 1024) if memory else None,
+                'memory.used': memory.used // MB if memory else None,
+                'memory.total': memory.total // MB if memory else None,
                 'processes': processes,
             }
             return gpu_info
@@ -382,7 +396,8 @@ class GPUStatCollection(object):
                         ):
         # ANSI color configuration
         if force_color and no_color:
-            raise ValueError("--color and --no_color can't be used at the same time")
+            raise ValueError("--color and --no_color can't"
+                             " be used at the same time")
 
         if force_color:
             t_color = Terminal(kind='xterm-color', force_styling=True)
@@ -395,17 +410,19 @@ class GPUStatCollection(object):
         if show_header:
             time_format = locale.nl_langinfo(locale.D_T_FMT)
 
-            header_msg = '{t.bold_white}{hostname}{t.normal}  {timestr}'.format(**{
-                'hostname': self.hostname,
-                'timestr': self.query_time.strftime(time_format),
-                't': t_color,
-            })
+            header_template = '{t.bold_white}{hostname}{t.normal}  {timestr}'
+            header_msg = header_template.format(
+                    hostname=self.hostname,
+                    timestr=self.query_time.strftime(time_format),
+                    t=t_color,
+                )
 
             fp.write(header_msg)
             fp.write('\n')
 
         # body
-        gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
+        entry_name_width = [len(g.entry['name']) for g in self]
+        gpuname_width = max([gpuname_width] + entry_name_width)
         for g in self:
             g.print_to(fp,
                        show_cmd=show_cmd,
