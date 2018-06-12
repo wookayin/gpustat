@@ -15,13 +15,15 @@ def print_gpustat(json=False, debug=False, **args):
     try:
         gpu_stats = GPUStatCollection.new_query()
     except Exception as e:
-        sys.stderr.write('Error on querying NVIDIA devices. Use --debug flag for details\n')
+        sys.stderr.write('Error on querying NVIDIA devices.'
+                         ' Use --debug flag for details\n')
         if debug:
             try:
                 import traceback
                 traceback.print_exc(file=sys.stderr)
-            except:
-                # NVMLError can't be processed by traceback: https://bugs.python.org/issue28603
+            except Exception as e:
+                # NVMLError can't be processed by traceback:
+                #   https://bugs.python.org/issue28603
                 # as a workaround, simply re-throw the exception
                 raise e
         sys.exit(1)
@@ -56,19 +58,27 @@ def main(*argv):
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
-    parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
-                        choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
-                        help='Show GPU power usage or draw (and/or limit)')
-    parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
-                        help='Suppress header message')
-    parser.add_argument('--gpuname-width', type=int, default=16,
-                        help='The minimum column width of GPU names, defaults to 16')
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
-    parser.add_argument('--debug', action='store_true', default=False,
-                        help='Allow to print additional informations for debugging.')
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
+    parser.add_argument(
+        '-P', '--show-power', nargs='?', const='draw,limit',
+        choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
+        help='Show GPU power usage or draw (and/or limit)'
+    )
+    parser.add_argument(
+        '--no-header', dest='show_header', action='store_false', default=True,
+        help='Suppress header message'
+    )
+    parser.add_argument(
+        '--gpuname-width', type=int, default=16,
+        help='The minimum column width of GPU names, defaults to 16'
+    )
+    parser.add_argument(
+        '--debug', action='store_true', default=False,
+        help='Allow to print additional informations for debugging.'
+    )
     args = parser.parse_args(argv[1:])
 
     print_gpustat(**vars(args))

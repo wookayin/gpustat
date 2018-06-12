@@ -5,6 +5,10 @@ python:
   - "3.5"
   - "3.6"
 
+before_install:
+  - pip install flake8 && flake8 .
+
 script:
   # pytest --verbose -s  (print stdouts, etc.)
-  - 'PYTEST_ADDOPTS="-s" python setup.py test'
+  - PYTEST_ADDOPTS="-s" python setup.py test
+  - pip install .

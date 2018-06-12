@@ -1,14 +1,17 @@
 """
 Unit or integration tests for gpustat
 """
+# flake8: ignore=E501
 
 from __future__ import print_function
 from __future__ import absolute_import
 
 import unittest
 import sys
-
 from collections import namedtuple
+
+import psutil
+import pynvml
 from six.moves import cStringIO as StringIO
 
 import gpustat
@@ -19,9 +22,6 @@ except ImportError:
     import mock
 
 MagicMock = mock.MagicMock
-
-import psutil
-import pynvml
 
 
 def _configure_mock(N, Process,
@@ -46,15 +46,18 @@ def _configure_mock(N, Process,
     N.nvmlDeviceGetCount.return_value = 3
 
     mock_handles = ['mock-handle-%d' % i for i in range(3)]
+
     def _raise_ex(fn):
-        """ Decorator to let exceptions returned from the callable re-throwed. """
+        """Decorator to let exceptions returned from the callable re-throwed.""" # noqa:E501
         def _decorated(*args, **kwargs):
             v = fn(*args, **kwargs)
-            if isinstance(v, Exception): raise v
+            if isinstance(v, Exception):
+                raise v
             return v
         return _decorated
 
-    N.nvmlDeviceGetHandleByIndex.side_effect=(lambda index: mock_handles[index])
+    N.nvmlDeviceGetHandleByIndex.side_effect = \
+        lambda index: mock_handles[index]
     N.nvmlDeviceGetIndex.side_effect = _raise_ex(lambda handle: {
         mock_handles[0]: 0,
         mock_handles[1]: 1,
@@ -110,13 +113,14 @@ def _configure_mock(N, Process,
         mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
     else:
         mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
-    N.nvmlDeviceGetComputeRunningProcesses.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],
-        mock_handles[1]: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],
-        mock_handles[2]: mock_processes_gpu2_erratic,  # Not Supported or non-existent
+    N.nvmlDeviceGetComputeRunningProcesses.side_effect = _raise_ex(lambda handle: {  # noqa: E501
+        mock_handles[0]: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],  # noqa: E501
+        mock_handles[1]: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],  # noqa: E501
+        # Not Supported or non-existent
+        mock_handles[2]: mock_processes_gpu2_erratic,
     }.get(handle, RuntimeError))
 
-    N.nvmlDeviceGetGraphicsRunningProcesses.side_effect = _raise_ex(lambda handle: {
+    N.nvmlDeviceGetGraphicsRunningProcesses.side_effect = _raise_ex(lambda handle: {  # noqa: E501
         mock_handles[0]: [],
         mock_handles[1]: [],
         mock_handles[2]: N.NVMLError_NotSupported(),
@@ -142,18 +146,17 @@ def _configure_mock(N, Process,
     Process.side_effect = _MockedProcess
 
 
-
 MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 [0] GeForce GTX TITAN 0 | 80'C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
 [1] GeForce GTX TITAN 1 | 36'C,   0 % |  9000 / 12189 MB | user1(3000M) user3(6000M)
 [2] GeForce GTX TITAN 2 | 71'C,  ?? % |     0 / 12189 MB | (Not Supported)
-"""
+"""  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
 [0] GeForce GTX TITAN 0 | 80'C,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
 [1] GeForce GTX TITAN 1 | 36'C,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
 [2] GeForce GTX TITAN 2 | 71'C,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
-"""
+"""  # noqa: E501
 
 
 MB = 1024 * 1024
@@ -189,7 +192,10 @@ class TestGPUStat(unittest.TestCase):
 
         gpustats = gpustat.new_query()
         fp = StringIO()
-        gpustats.print_formatted(fp=fp, no_color=False, show_user=True, show_cmd=True, show_pid=True, show_power=True)
+        gpustats.print_formatted(
+            fp=fp, no_color=False, show_user=True,
+            show_cmd=True, show_pid=True, show_power=True
+        )
 
         result = fp.getvalue()
         print(result)
@@ -237,7 +243,6 @@ class TestGPUStat(unittest.TestCase):
         print("temperature : %d" % (g.temperature))
         print("utilization : %s" % (g.utilization))
 
-
     @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
@@ -255,12 +260,15 @@ class TestGPUStat(unittest.TestCase):
                 try:
                     gpustat.main(*args)
                 except SystemExit:
-                    raise AssertionError("Argparse failed (see above error message)")
+                    raise AssertionError(
+                        "Argparse failed (see above error message)"
+                    )
             return f.getvalue()
 
         s = capture_output('gpustat', )
         unescaped = remove_ansi_codes(s)
-        unescaped = '\n'.join(unescaped.split('\n')[1:])   # remove first line (header)
+        # remove first line (header)
+        unescaped = '\n'.join(unescaped.split('\n')[1:])
         self.maxDiff = 4096
         self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_DEFAULT)
 
