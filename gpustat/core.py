@@ -378,7 +378,9 @@ class GPUStatCollection(object):
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
                         show_power=None, gpuname_width=16,
-                        show_header=True, clear_term=False, **kwargs
+                        show_header=True,
+                        eol_char='\n',
+                        **kwargs
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -391,8 +393,6 @@ class GPUStatCollection(object):
         else:
             t_color = Terminal()   # auto, depending on isatty
 
-        if clear_term:
-            print(t_color.clear())
         # header
         if show_header:
             time_format = locale.nl_langinfo(locale.D_T_FMT)
@@ -404,7 +404,7 @@ class GPUStatCollection(object):
             })
 
             fp.write(header_msg)
-            fp.write('\n')
+            fp.write(eol_char)
 
         # body
         gpuname_width = max([gpuname_width] + [len(g.entry['name']) for g in self])
@@ -416,7 +416,7 @@ class GPUStatCollection(object):
                        show_power=show_power,
                        gpuname_width=gpuname_width,
                        term=t_color)
-            fp.write('\n')
+            fp.write(eol_char)
 
         fp.flush()
 

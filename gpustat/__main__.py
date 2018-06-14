@@ -11,7 +11,7 @@ from gpustat import __version__
 from .core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, clear_term=False, **args):
+def print_gpustat(json=False, debug=False, **kwargs):
     '''
     Display the GPU query results into standard output.
     '''
@@ -27,7 +27,7 @@ def print_gpustat(json=False, debug=False, clear_term=False, **args):
     if json:
         gpu_stats.print_json(sys.stdout)
     else:
-        gpu_stats.print_formatted(sys.stdout, clear_term=clear_term, **args)
+        gpu_stats.print_formatted(sys.stdout, **kwargs)
 
 
 def main(*argv):
@@ -57,7 +57,7 @@ def main(*argv):
     parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
                         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
                         help='Show GPU power usage or draw (and/or limit)')
-    parser.add_argument('-i', '--interval', type=int, default=0,
+    parser.add_argument('-i', '--interval', type=float, default=0,
                         help='Infinite update GPU stats with interval in seconds')
     parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
                         help='Suppress header message')
@@ -77,7 +77,9 @@ def main(*argv):
             while 1:
                 try:
                     query_start = time.time()
-                    print_gpustat(clear_term=True, **vars(args))
+                    with term.location(0, 0):
+                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))
+                        print(term.clear_eos, end='')
                     query_duration = time.time() - query_start
                     sleep_duration = args.interval - query_duration
                     if sleep_duration > 0:
