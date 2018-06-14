@@ -72,6 +72,10 @@ def main(*argv):
     args = parser.parse_args(argv[1:])
 
     if args.interval > 0:
+        if args.json:
+            sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")
+            sys.exit(1)
+
         term = Terminal()
         with term.fullscreen():
             while 1:
