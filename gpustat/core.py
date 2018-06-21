@@ -108,6 +108,16 @@ class GPUStat(object):
         return int(v) if v is not None else None
 
     @property
+    def fan(self):
+        """
+        Returns the fan percentage of GPU as an integer,
+        or None if the information is not available.
+        """
+        v = self.entry['fan']
+        return int(v) if v is not None else None
+
+
+    @property
     def utilization(self):
         """
         Returns the GPU utilization (in percentile),
@@ -190,6 +200,7 @@ class GPUStat(object):
         reps = "%(C1)s[{entry[index]}]%(C0)s " \
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
             "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, " \
+            "%(C0)s{entry[fan]:>3} %%%(C0)s, " \
             "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
         if show_power:
@@ -297,6 +308,11 @@ class GPUStatCollection(object):
                 temperature = None  # Not supported
 
             try:
+                fan = N.nvmlDeviceGetFanSpeed(handle)
+            except N.NVMLError:
+                fan = None  # Not supported
+
+            try:
                 memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
             except N.NVMLError:
                 memory = None  # Not supported
@@ -350,6 +366,7 @@ class GPUStatCollection(object):
                 'uuid': uuid,
                 'name': name,
                 'temperature.gpu': temperature,
+                'fan': fan,
                 'utilization.gpu': utilization.gpu if utilization else None,
                 'power.draw': power // 1000 if power is not None else None,
                 'enforced.power.limit': power_limit // 1000
