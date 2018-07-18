@@ -379,7 +379,7 @@ class GPUStatCollection(object):
                         show_cmd=False, show_user=False, show_pid=False,
                         show_power=None, gpuname_width=16,
                         show_header=True,
-                        eol_char='\n',
+                        eol_char=os.linesep,
                         **kwargs
                         ):
         # ANSI color configuration

@@ -58,7 +58,7 @@ def main(*argv):
                         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
                         help='Show GPU power usage or draw (and/or limit)')
     parser.add_argument('-i', '--interval', type=float, default=0,
-                        help='Infinite update GPU stats with interval in seconds')
+                        help='Use watch mode if given; seconds to wait between updates')
     parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
                         help='Suppress header message')
     parser.add_argument('--gpuname-width', type=int, default=16,
@@ -72,6 +72,7 @@ def main(*argv):
     args = parser.parse_args(argv[1:])
 
     if args.interval > 0:
+        args.interval = max(0.1, args.interval)
         if args.json:
             sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")
             sys.exit(1)
