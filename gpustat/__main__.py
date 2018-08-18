@@ -57,7 +57,7 @@ def main(*argv):
     parser.add_argument('-P', '--show-power', nargs='?', const='draw,limit',
                         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
                         help='Show GPU power usage or draw (and/or limit)')
-    parser.add_argument('-i', '--interval', type=float, default=0,
+    parser.add_argument('-i', '--interval', nargs='?', type=float, default=0,
                         help='Use watch mode if given; seconds to wait between updates')
     parser.add_argument('--no-header', dest='show_header', action='store_false', default=True,
                         help='Suppress header message')
@@ -71,6 +71,8 @@ def main(*argv):
                         version=('gpustat %s' % __version__))
     args = parser.parse_args(argv[1:])
 
+    if args.interval is None:  # with default value
+        args.interval = 1.0
     if args.interval > 0:
         args.interval = max(0.1, args.interval)
         if args.json:

@@ -22,11 +22,13 @@ Options:
 * `-c`, `--show-cmd`   : Display the process name
 * `-p`, `--show-pid`   : Display PID of the process
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
+* `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates.
 * `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
 
 ### Tips
 
-- To periodically watch, try `watch --color -n1.0 gpustat --color` (built-in watch support will be added soon).
+- To periodically watch, try `gpustat -i` (built-in watch support: #41).
+  Alternative: `watch --color -n1.0 gpustat --color`
 - Running `nvidia-smi daemon` (root privilege required) will make the query much **faster**.
 - The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
   while CUDA differently assigns the fastest GPU with the lowest ID by default.
