@@ -275,6 +275,19 @@ class TestGPUStat(unittest.TestCase):
         s = capture_output('gpustat', '--no-header')
         self.assertIn("[0]", s.split('\n')[0])
 
+    @mock.patch('psutil.Process')
+    @mock.patch('gpustat.core.N')
+    def test_json_mocked(self, N, Process):
+        _configure_mock(N, Process)
+        gpustats = gpustat.new_query()
+
+        fp = StringIO()
+        gpustats.print_json(fp=fp)
+
+        import json
+        j = json.loads(fp.getvalue())
+        print(j)
+
 
 if __name__ == '__main__':
     unittest.main()
