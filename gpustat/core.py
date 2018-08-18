@@ -395,6 +395,8 @@ class GPUStatCollection(object):
                         show_cmd=False, show_user=False, show_pid=False,
                         show_power=None, gpuname_width=16,
                         show_header=True,
+                        eol_char=os.linesep,
+                        **kwargs
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -423,7 +425,7 @@ class GPUStatCollection(object):
                 )
 
             fp.write(header_msg)
-            fp.write('\n')
+            fp.write(eol_char)
 
         # body
         entry_name_width = [len(g.entry['name']) for g in self]
@@ -436,7 +438,7 @@ class GPUStatCollection(object):
                        show_power=show_power,
                        gpuname_width=gpuname_width,
                        term=t_color)
-            fp.write('\n')
+            fp.write(eol_char)
 
         fp.flush()
 

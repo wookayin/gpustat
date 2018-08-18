@@ -3,12 +3,15 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
+import time
+
+from blessings import Terminal
 
 from gpustat import __version__
 from .core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **args):
+def print_gpustat(json=False, debug=False, **kwargs):
     '''
     Display the GPU query results into standard output.
     '''
@@ -31,7 +34,7 @@ def print_gpustat(json=False, debug=False, **args):
     if json:
         gpu_stats.print_json(sys.stdout)
     else:
-        gpu_stats.print_formatted(sys.stdout, **args)
+        gpu_stats.print_formatted(sys.stdout, **kwargs)
 
 
 def main(*argv):
@@ -68,6 +71,10 @@ def main(*argv):
         help='Show GPU power usage or draw (and/or limit)'
     )
     parser.add_argument(
+        '-i', '--interval', nargs='?', type=float, default=0,
+        help='Use watch mode if given; seconds to wait between updates'
+    )
+    parser.add_argument(
         '--no-header', dest='show_header', action='store_false', default=True,
         help='Suppress header message'
     )
@@ -81,7 +88,30 @@ def main(*argv):
     )
     args = parser.parse_args(argv[1:])
 
-    print_gpustat(**vars(args))
+    if args.interval is None:  # with default value
+        args.interval = 1.0
+    if args.interval > 0:
+        args.interval = max(0.1, args.interval)
+        if args.json:
+            sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")
+            sys.exit(1)
+
+        term = Terminal()
+        with term.fullscreen():
+            while 1:
+                try:
+                    query_start = time.time()
+                    with term.location(0, 0):
+                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))
+                        print(term.clear_eos, end='')
+                    query_duration = time.time() - query_start
+                    sleep_duration = args.interval - query_duration
+                    if sleep_duration > 0:
+                        time.sleep(sleep_duration)
+                except KeyboardInterrupt as kb:
+                    exit(0)
+    else:
+        print_gpustat(**vars(args))
 
 
 if __name__ == '__main__':
