@@ -93,7 +93,7 @@ def main(*argv):
     if args.interval > 0:
         args.interval = max(0.1, args.interval)
         if args.json:
-            sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")
+            sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")  # noqa
             sys.exit(1)
 
         term = Terminal()
@@ -102,7 +102,7 @@ def main(*argv):
                 try:
                     query_start = time.time()
                     with term.location(0, 0):
-                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))
+                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))  # noqa
                         print(term.clear_eos, end='')
                     query_duration = time.time() - query_start
                     sleep_duration = args.interval - query_duration
