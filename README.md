@@ -29,8 +29,8 @@ Options:
 
 ### Tips
 
-- To periodically watch, try `gpustat -i` (built-in watch support: #41).
-  Alternative: `watch --color -n1.0 gpustat --color`
+- To periodically watch, try `gpustat -i` (built-in watch support: [#41][gh-issue-41]) or
+  `watch --color -n1.0 gpustat --color`.
 - Running `nvidia-smi daemon` (root privilege required) will make the query much **faster**.
 - The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
   while CUDA differently assigns the fastest GPU with the lowest ID by default.
@@ -66,6 +66,7 @@ chmod +x ~/.local/bin/gpustat    # Assuming ~/.local/bin is in your $PATH
 
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
 [gh-issue-10]: https://github.com/wookayin/gpustat/issues/10
+[gh-issue-41]: https://github.com/wookayin/gpustat/issues/41
 
 
 License
