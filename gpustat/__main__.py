@@ -108,7 +108,7 @@ def main(*argv):
                     sleep_duration = args.interval - query_duration
                     if sleep_duration > 0:
                         time.sleep(sleep_duration)
-                except KeyboardInterrupt as kb:
+                except KeyboardInterrupt:
                     exit(0)
     else:
         print_gpustat(**vars(args))
