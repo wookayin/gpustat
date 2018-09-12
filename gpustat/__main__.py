@@ -24,7 +24,7 @@ def print_gpustat(json=False, debug=False, **kwargs):
             try:
                 import traceback
                 traceback.print_exc(file=sys.stderr)
-            except Exception as e:
+            except Exception:
                 # NVMLError can't be processed by traceback:
                 #   https://bugs.python.org/issue28603
                 # as a workaround, simply re-throw the exception
