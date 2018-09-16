@@ -71,7 +71,7 @@ def main(*argv):
         help='Show GPU power usage or draw (and/or limit)'
     )
     parser.add_argument(
-        '-i', '--interval', nargs='?', type=float, default=0,
+        '-i', '--interval', '--watch', nargs='?', type=float, default=0,
         help='Use watch mode if given; seconds to wait between updates'
     )
     parser.add_argument(

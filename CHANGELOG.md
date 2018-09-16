@@ -3,7 +3,7 @@ Changelog for `gpustat`
 
 ## Unreleased
 
-TBA
+* Alias `gpustat --watch` to `-i`/`--interval` option.
 
 
 ## [v0.5.0][milestone-0.5]
