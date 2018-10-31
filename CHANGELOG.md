@@ -4,6 +4,7 @@ Changelog for `gpustat`
 ## Unreleased
 
 * Alias `gpustat --watch` to `-i`/`--interval` option.
+* Align query datetime in the header with respect to `--gpuname-width` parameter.
 
 
 ## [v0.5.0][milestone-0.5]

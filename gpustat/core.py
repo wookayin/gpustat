@@ -416,13 +416,18 @@ class GPUStatCollection(object):
         else:
             t_color = Terminal()   # auto, depending on isatty
 
+        # appearance settings
+        entry_name_width = [len(g.entry['name']) for g in self]
+        gpuname_width = max([gpuname_width or 0] + entry_name_width)
+
         # header
         if show_header:
             time_format = locale.nl_langinfo(locale.D_T_FMT)
 
-            header_template = '{t.bold_white}{hostname}{t.normal}  {timestr}'
+            header_template = '{t.bold_white}{hostname:{width}}{t.normal}  {timestr}'   # noqa: E501
             header_msg = header_template.format(
                     hostname=self.hostname,
+                    width=gpuname_width + 3,  # len("[?]")
                     timestr=self.query_time.strftime(time_format),
                     t=t_color,
                 )
@@ -431,8 +436,6 @@ class GPUStatCollection(object):
             fp.write(eol_char)
 
         # body
-        entry_name_width = [len(g.entry['name']) for g in self]
-        gpuname_width = max([gpuname_width] + entry_name_width)
         for g in self:
             g.print_to(fp,
                        show_cmd=show_cmd,
