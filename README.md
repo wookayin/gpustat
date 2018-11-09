@@ -31,7 +31,7 @@ Options:
 
 - To periodically watch, try `gpustat --watch` or `gpustat -i` ([#41][gh-issue-41]).
   For older versions, one may use `watch --color -n1.0 gpustat --color`.
-- Running `nvidia-smi daemon` (root privilege required) will make the query much **faster**.
+- Running `nvidia-smi daemon` (root privilege required) will make the query much **faster** and use less CPU time (#54).
 - The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
   while CUDA differently assigns the fastest GPU with the lowest ID by default.
   Therefore, in order to make CUDA and `gpustat` use **same GPU index**,
