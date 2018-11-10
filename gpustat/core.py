@@ -250,18 +250,37 @@ class GPUStat(object):
 
 class GPUStatCollection(object):
 
-    def __init__(self, gpu_list):
+    def __init__(self, gpu_list=[]):
+        """The initialization argument gpu_list is remained to support
+        existing APIs"""
         self.gpus = gpu_list
 
-        # attach additional system information
-        self.hostname = platform.node()
-        self.query_time = datetime.now()
-
-    @staticmethod
-    def new_query():
-        """Query the information of all the GPUs on local machine"""
-
         N.nvmlInit()
+        device_count = N.nvmlDeviceGetCount()
+        self.handles = [N.nvmlDeviceGetHandleByIndex(idx)
+                        for idx in range(device_count)]
+
+        self.update()
+
+    def __del__(self):
+        # sometimes delayed gc causes problem, just attempt to release
+        # NVML resources
+        try:
+            N.nvmlShutdown()
+        except Exception:
+            pass
+
+    def update(self):
+        self._update_host()
+        self._update_gpu()
+
+    def _update_host(self):
+        """Update additional host information"""
+        self.query_time = datetime.now()
+        self.hostname = platform.node()
+
+    def _update_gpu(self):
+        """Query the information of all the GPUs on local machine"""
 
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
@@ -365,17 +384,12 @@ class GPUStatCollection(object):
             return gpu_info
 
         # 1. get the list of gpu and status
-        gpu_list = []
-        device_count = N.nvmlDeviceGetCount()
+        self.gpus = []
 
-        for index in range(device_count):
-            handle = N.nvmlDeviceGetHandleByIndex(index)
+        for handle in self.handles:
             gpu_info = get_gpu_info(handle)
             gpu_stat = GPUStat(gpu_info)
-            gpu_list.append(gpu_stat)
-
-        N.nvmlShutdown()
-        return GPUStatCollection(gpu_list)
+            self.gpus.append(gpu_stat)
 
     def __len__(self):
         return len(self.gpus)
@@ -471,7 +485,7 @@ class GPUStatCollection(object):
 
 def new_query():
     '''
-    Obtain a new GPUStatCollection instance by querying nvidia-smi
+    Obtain a new GPUStatCollection instance by querying nvml
     to get the list of GPUs and running process information.
     '''
-    return GPUStatCollection.new_query()
+    return GPUStatCollection()

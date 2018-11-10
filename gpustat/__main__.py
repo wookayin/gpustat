@@ -11,12 +11,16 @@ from gpustat import __version__
 from .core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **kwargs):
+def print_gpustat(json=False, debug=False, gpu_stat=None, **kwargs):
     '''
     Display the GPU query results into standard output.
     '''
+
     try:
-        gpu_stats = GPUStatCollection.new_query()
+        if gpu_stat is None:
+            gpu_stat = GPUStatCollection()
+        else:
+            gpu_stat.update()
     except Exception as e:
         sys.stderr.write('Error on querying NVIDIA devices.'
                          ' Use --debug flag for details\n')
@@ -32,9 +36,10 @@ def print_gpustat(json=False, debug=False, **kwargs):
         sys.exit(1)
 
     if json:
-        gpu_stats.print_json(sys.stdout)
+        gpu_stat.print_json(sys.stdout)
     else:
-        gpu_stats.print_formatted(sys.stdout, **kwargs)
+        gpu_stat.print_formatted(sys.stdout, **kwargs)
+    return gpu_stat
 
 
 def main(*argv):
@@ -88,6 +93,8 @@ def main(*argv):
     )
     args = parser.parse_args(argv[1:])
 
+    cached_stat = None
+
     if args.interval is None:  # with default value
         args.interval = 1.0
     if args.interval > 0:
@@ -102,7 +109,7 @@ def main(*argv):
                 try:
                     query_start = time.time()
                     with term.location(0, 0):
-                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))  # noqa
+                        cached_stat = print_gpustat(gpu_stat=cached_stat, eol_char=term.clear_eol + '\n', **vars(args))  # noqa
                         print(term.clear_eos, end='')
                     query_duration = time.time() - query_start
                     sleep_duration = args.interval - query_duration
@@ -111,7 +118,7 @@ def main(*argv):
                 except KeyboardInterrupt:
                     exit(0)
     else:
-        print_gpustat(**vars(args))
+        print_gpustat(gpu_stat=cached_stat, **vars(args))
 
 
 if __name__ == '__main__':
