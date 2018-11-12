@@ -189,7 +189,7 @@ class GPUStat(object):
         # temperature and utilization
         reps = "%(C1)s[{entry[index]}]%(C0)s " \
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
-            "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, " \
+            "%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, " \
             "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
         if show_power:
