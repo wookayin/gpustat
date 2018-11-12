@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Unit or integration tests for gpustat
 """
@@ -154,15 +156,15 @@ def _configure_mock(N, Process,
 
 
 MOCK_EXPECTED_OUTPUT_DEFAULT = """\
-[0] GeForce GTX TITAN 0 | 80'C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
-[1] GeForce GTX TITAN 1 | 36'C,   0 % |  9000 / 12189 MB | user1(3000M) user3(6000M)
-[2] GeForce GTX TITAN 2 | 71'C,  ?? % |     0 / 12189 MB | (Not Supported)
+[0] GeForce GTX TITAN 0 | 80°C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
+[1] GeForce GTX TITAN 1 | 36°C,   0 % |  9000 / 12189 MB | user1(3000M) user3(6000M)
+[2] GeForce GTX TITAN 2 | 71°C,  ?? % |     0 / 12189 MB | (Not Supported)
 """  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
-[0] GeForce GTX TITAN 0 | 80'C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
-[1] GeForce GTX TITAN 1 | 36'C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71'C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """  # noqa: E501
 
 

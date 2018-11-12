@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 """
 Implementation of gpustat
@@ -10,6 +11,7 @@ Implementation of gpustat
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import json
 import locale
@@ -199,9 +201,9 @@ class GPUStat(object):
         # build one-line display information
         # we want power use optional, but if deserves being grouped with
         # temperature and utilization
-        reps = "%(C1)s[{entry[index]}]%(C0)s " \
+        reps = u"%(C1)s[{entry[index]}]%(C0)s " \
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
-            "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, "
+            "%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
 
         if show_fan_speed:
             reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
