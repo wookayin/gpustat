@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Unit or integration tests for gpustat
 """
