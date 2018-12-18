@@ -11,6 +11,11 @@ Just *less* than nvidia-smi?
 
 NOTE: This works with NVIDIA Graphics Devices only, no AMD support as of now. Contributions are welcome!
 
+Self-Promotion: A web interface of `gpustat` is available (in alpha)! Check out [gpustat-web][gpustat-web].
+
+[gpustat-web]: https://github.com/wookayin/gpustat-web
+
+
 Usage
 -----
 
