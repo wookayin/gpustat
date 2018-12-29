@@ -40,6 +40,7 @@ setup(
     license='MIT',
     description='An utility to monitor NVIDIA GPU status and usage',
     long_description=read_readme(),
+    long_description_content_type='text/markdown',
     url='https://github.com/wookayin/gpustat',
     author='Jongwook Choi',
     author_email='wookayin@gmail.com',
