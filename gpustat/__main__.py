@@ -8,10 +8,12 @@ import time
 from blessings import Terminal
 
 from gpustat import __version__
-from .core import GPUStatCollection
+from .core import GPUStatCollection, CPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **kwargs):
+def print_gpustat(json=False, 
+                  debug=False,
+                   **kwargs):
     '''
     Display the GPU query results into standard output.
     '''
@@ -86,6 +88,16 @@ def main(*argv):
         '--debug', action='store_true', default=False,
         help='Allow to print additional informations for debugging.'
     )
+
+    parser.add_argument(
+        '--cpu', action='store_true', default=False,
+        help='Enable printing CPU details.'
+    )
+    parser.add_argument(
+        '--memory', action='store_true', default=False,
+        help='Enable printing memory details.'
+    )
+
     args = parser.parse_args(argv[1:])
 
     if args.interval is None:  # with default value
@@ -97,12 +109,17 @@ def main(*argv):
             sys.exit(1)
 
         term = Terminal()
+        cpustat = CPUStatCollection()
         with term.fullscreen():
             while 1:
                 try:
                     query_start = time.time()
                     with term.location(0, 0):
                         print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))  # noqa
+                        if args.cpu:
+                            cpustat.print_formatted(
+                                sys.stdout, eol_char='\n', **vars(args)
+                            )
                         print(term.clear_eos, end='')
                     query_duration = time.time() - query_start
                     sleep_duration = args.interval - query_duration

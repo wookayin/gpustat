@@ -16,6 +16,7 @@ import locale
 import os.path
 import platform
 import sys
+import psutil
 from datetime import datetime
 
 from six.moves import cStringIO as StringIO
@@ -150,9 +151,6 @@ class GPUStat(object):
                  gpuname_width=16,
                  term=Terminal(),
                  ):
-        # color settings
-        colors = {}
-
         def _conditional(cond_fn, true_value, false_value,
                          error_value=term.bold_black):
             try:
@@ -160,6 +158,7 @@ class GPUStat(object):
             except Exception:
                 return error_value
 
+        colors = {}
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
         colors['CName'] = term.blue
@@ -468,6 +467,81 @@ class GPUStatCollection(object):
         fp.write('\n')
         fp.flush()
 
+class CPUStatCollection(object):
+    def __init__(self):
+        pass
+
+    def print_cpu(self, fp, cpu_num, percent, cpu,
+                with_colors=True,
+                term=Terminal()
+                ):
+
+        # color settings
+        def _conditional(cond_fn, true_value, false_value,
+                    error_value=term.bold_black):
+            try:
+                return cond_fn() and true_value or false_value
+            except Exception:
+                return error_value
+            
+        colors = {}
+        colors['C0'] = term.normal
+        colors['C1'] = term.cyan
+        colors['CName'] = term.blue
+        colors['CUser'] = term.magenta
+        colors['CSystem'] = term.blue
+        colors['CGuest'] = term.white
+
+        def _percentColor(percent):
+            if percent < 30:
+                return term.bold_green
+            elif percent < 66:
+                return term.bold_yellow
+            else:
+                return term.bold_red
+
+        def _repr(v, none_value='??'):
+            return none_value if v is None else v
+
+        colors['CTotalPercent'] = _percentColor(percent)
+        colors['CUserPercent'] = _percentColor(cpu.user)
+        colors['CSystemPercent'] = _percentColor(cpu.system)
+        colors['CGuestPercent'] = _percentColor(cpu.guest)
+
+        reps = "%(C1)s[{cpu_num}]%(C0)s " \
+               "%(CName)sCPU {cpu_num:3}%(C0)s | " \
+               "%(CTotalPercent)s{cpu_percent:5.1f}%%%(C0)s | " \
+               "%(CSystem)sSystem(%(CSystemPercent)s{system_percent:5.1f}%%%(CSystem)s)%(C1)s, " \
+               "%(CUser)sUser(%(CUserPercent)s{user_percent:5.1f}%%%(CUser)s)%(C1)s, " \
+               "%(CGuest)sGuest(%(CGuestPercent)s{guest_percent:5.1f}%%%(CGuest)s)"
+
+        reps = reps % colors
+        reps = reps.format(cpu_num=_repr(cpu_num),
+                           cpu_percent=_repr(percent),
+                           system_percent=_repr(cpu.system),
+                           user_percent=_repr(cpu.user),
+                           guest_percent=_repr(cpu.guest))
+        fp.write(reps)
+            
+    def print_formatted(self, fp,
+                        with_colors=True,
+                        term=Terminal(),
+                        eol_char=os.linesep,
+                        **kwargs
+                        ):
+        cpupercents = psutil.cpu_percent(percpu=True)
+        cputimes = psutil.cpu_times_percent(percpu=True)
+
+        fp.write("\n%sCPU Stats\n" % term.bold_white)
+
+        for i in range(psutil.cpu_count(logical=False)):
+            self.print_cpu(fp, i, cpupercents[i], cputimes[i],
+                with_colors=with_colors,
+                term=term)
+            fp.write(eol_char)
+
+        fp.flush()
+        
 
 def new_query():
     '''
