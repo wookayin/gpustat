@@ -542,6 +542,67 @@ class CPUStatCollection(object):
 
         fp.flush()
         
+class MemoryStatCollection(object):
+    def __init__(self):
+        pass
+            
+    def print_formatted(self, fp,
+                        with_colors=True,
+                        term=Terminal(),
+                        eol_char=os.linesep,
+                        **kwargs
+                        ):
+        vm = psutil.virtual_memory()
+        sw = psutil.swap_memory()
+
+        fp.write("\n%sMemory Stats\n" % term.bold_white)
+
+
+        # color settings
+        def _conditional(cond_fn, true_value, false_value,
+                    error_value=term.bold_black):
+            try:
+                return cond_fn() and true_value or false_value
+            except Exception:
+                return error_value
+            
+        colors = {}
+        colors['C0'] = term.normal
+        colors['C1'] = term.cyan
+        colors['CName'] = term.blue
+        colors['CMemory'] = term.green
+
+        def _percentColor(percent):
+            if percent < 30:
+                return term.bold_green
+            elif percent < 66:
+                return term.bold_yellow
+            else:
+                return term.bold_red
+
+        def _repr(v, none_value='??'):
+            return none_value if v is None else v
+
+
+        vm_percent = vm.used / vm.total * 100
+        sw_percent = sw.used / sw.total * 100
+
+        colors['CVMPercent'] = _percentColor(vm_percent)
+        colors['CSWPercent'] = _percentColor(sw_percent)
+
+        reps = "%(CName)sPhysical Memory %(C1)s| %(CVMPercent)s{vm_percent:5.1f}%%%(C1)s | %(CVMPercent)s{vm_used:8.1f}G%(C1)s/%(CMemory)s{vm_total:8.1f}G\n" \
+               "%(CName)s           Swap %(C1)s| %(CSWPercent)s{sw_percent:5.1f}%%%(C1)s | %(CSWPercent)s{sw_used:8.1f}G%(C1)s/%(CMemory)s{sw_total:8.1f}G\n"
+
+        reps = reps % colors
+        reps = reps.format(vm_percent=vm_percent,
+                           vm_used=vm.used / (1024 ** 3),
+                           vm_total = vm.total / (1024 ** 3),
+                           sw_percent=sw_percent,
+                           sw_used=sw.used / (1024 ** 3),
+                           sw_total=sw.total / (1024 ** 3))
+        fp.write(reps)
+
+        fp.flush()
 
 def new_query():
     '''

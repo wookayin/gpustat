@@ -8,7 +8,7 @@ import time
 from blessings import Terminal
 
 from gpustat import __version__
-from .core import GPUStatCollection, CPUStatCollection
+from .core import GPUStatCollection, CPUStatCollection, MemoryStatCollection
 
 
 def print_gpustat(json=False, 
@@ -110,6 +110,7 @@ def main(*argv):
 
         term = Terminal()
         cpustat = CPUStatCollection()
+        memorystat = MemoryStatCollection()
         with term.fullscreen():
             while 1:
                 try:
@@ -117,9 +118,9 @@ def main(*argv):
                     with term.location(0, 0):
                         print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))  # noqa
                         if args.cpu:
-                            cpustat.print_formatted(
-                                sys.stdout, eol_char='\n', **vars(args)
-                            )
+                            cpustat.print_formatted(sys.stdout, eol_char='\n', **vars(args))
+                        if args.memory:
+                            memorystat.print_formatted(sys.stdout, eol_char='\n', **vars(args))
                         print(term.clear_eos, end='')
                     query_duration = time.time() - query_start
                     sleep_duration = args.interval - query_duration
