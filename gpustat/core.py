@@ -513,7 +513,8 @@ class CPUStatCollection(object):
                "%(CTotalPercent)s{cpu_percent:5.1f}%%%(C0)s | " \
                "%(CSystem)sSystem(%(CSystemPercent)s{system_percent:5.1f}%%%(CSystem)s)%(C1)s, " \
                "%(CUser)sUser(%(CUserPercent)s{user_percent:5.1f}%%%(CUser)s)%(C1)s, " \
-               "%(CGuest)sGuest(%(CGuestPercent)s{guest_percent:5.1f}%%%(CGuest)s)"
+               "%(CGuest)sGuest(%(CGuestPercent)s{guest_percent:5.1f}%%%(CGuest)s)" \
+               "%(C0)s"
 
         reps = reps % colors
         reps = reps.format(cpu_num=_repr(cpu_num),
@@ -591,9 +592,8 @@ class MemoryStatCollection(object):
         colors['CSWPercent'] = _percentColor(sw_percent)
 
         reps = "%(CName)sPhysical Memory %(C1)s| %(CVMPercent)s{vm_percent:5.1f}%%%(C1)s | %(CVMPercent)s{vm_used:8.1f}G%(C1)s/%(CMemory)s{vm_total:8.1f}G\n" \
-               "%(CName)s           Swap %(C1)s| %(CSWPercent)s{sw_percent:5.1f}%%%(C1)s | %(CSWPercent)s{sw_used:8.1f}G%(C1)s/%(CMemory)s{sw_total:8.1f}G\n"
-
-        reps = reps % colors
+               "%(CName)s           Swap %(C1)s| %(CSWPercent)s{sw_percent:5.1f}%%%(C1)s | %(CSWPercent)s{sw_used:8.1f}G%(C1)s/%(CMemory)s{sw_total:8.1f}G\n" \
+               "%(C0)s"
         reps = reps.format(vm_percent=vm_percent,
                            vm_used=vm.used / (1024 ** 3),
                            vm_total = vm.total / (1024 ** 3),
