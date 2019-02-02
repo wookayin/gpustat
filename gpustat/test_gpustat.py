@@ -49,7 +49,7 @@ def _configure_mock(N, Process,
     mock_handles = ['mock-handle-%d' % i for i in range(3)]
 
     def _raise_ex(fn):
-        """Decorator to let exceptions returned from the callable re-throwed.""" # noqa:E501
+        """Decorator to let exceptions returned from the callable re-throwed."""  # noqa:E501
         def _decorated(*args, **kwargs):
             v = fn(*args, **kwargs)
             if isinstance(v, Exception):
