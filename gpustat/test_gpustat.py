@@ -44,6 +44,7 @@ def _configure_mock(N, Process,
     N.nvmlInit = MagicMock()
     N.nvmlShutdown = MagicMock()
     N.nvmlDeviceGetCount.return_value = 3
+    N.nvmlSystemGetDriverVersion.return_value = '415.27.mock'
 
     mock_handles = ['mock-handle-%d' % i for i in range(3)]
 
