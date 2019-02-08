@@ -37,6 +37,24 @@ def print_gpustat(json=False, debug=False, **kwargs):
         gpu_stats.print_formatted(sys.stdout, **kwargs)
 
 
+def loop_gpustat(interval=1.0, **kwargs):
+    term = Terminal()
+
+    with term.fullscreen():
+        while 1:
+            try:
+                query_start = time.time()
+                with term.location(0, 0):
+                    print_gpustat(eol_char=term.clear_eol + '\n', **kwargs)  # noqa
+                    print(term.clear_eos, end='')
+                query_duration = time.time() - query_start
+                sleep_duration = interval - query_duration
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
+            except KeyboardInterrupt:
+                return 0
+
+
 def main(*argv):
     if not argv:
         argv = list(sys.argv)
@@ -96,20 +114,7 @@ def main(*argv):
             sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")  # noqa
             sys.exit(1)
 
-        term = Terminal()
-        with term.fullscreen():
-            while 1:
-                try:
-                    query_start = time.time()
-                    with term.location(0, 0):
-                        print_gpustat(eol_char=term.clear_eol + '\n', **vars(args))  # noqa
-                        print(term.clear_eos, end='')
-                    query_duration = time.time() - query_start
-                    sleep_duration = args.interval - query_duration
-                    if sleep_duration > 0:
-                        time.sleep(sleep_duration)
-                except KeyboardInterrupt:
-                    exit(0)
+        loop_gpustat(**vars(args))
     else:
         print_gpustat(**vars(args))
 
