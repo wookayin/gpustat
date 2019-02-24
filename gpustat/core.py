@@ -21,8 +21,16 @@ from datetime import datetime
 from six.moves import cStringIO as StringIO
 
 import psutil
-import pynvml as N
 from blessings import Terminal
+
+# load pynvml and init the library
+import pynvml as N
+try:
+    N.nvmlInit()
+except N.NVMLError:
+    # NVMLError_LibraryNotFound
+    N = None
+
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -262,7 +270,10 @@ class GPUStatCollection(object):
     def new_query():
         """Query the information of all the GPUs on local machine"""
 
-        N.nvmlInit()
+        if N is None:
+            # pynvmlInit failed, should re-throw the error
+            import pynvml
+            raise pynvml.NVMLError_LibraryNotFound()  # nvidia not available?
 
         def _decode(b):
             if isinstance(b, bytes):
@@ -381,7 +392,6 @@ class GPUStatCollection(object):
         except N.NVMLError:
             driver_version = None    # N/A
 
-        N.nvmlShutdown()
         return GPUStatCollection(gpu_list, driver_version=driver_version)
 
     def __len__(self):
