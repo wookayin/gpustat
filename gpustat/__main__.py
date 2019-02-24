@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import sys
 import time
+from functools import partial
 
 from blessings import Terminal
 
@@ -11,12 +12,19 @@ from gpustat import __version__
 from .core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **kwargs):
+def print_gpustat(json=False, debug=False,
+                  gpustat_factory=GPUStatCollection.new_query,
+                  **kwargs):
     '''
     Display the GPU query results into standard output.
     '''
+
+    if not kwargs.get('show_power', None):
+        gpustat_factory = partial(gpustat_factory, include_power=False)
+
     try:
-        gpu_stats = GPUStatCollection.new_query()
+        gpu_stats = gpustat_factory()
+        assert isinstance(gpu_stats, GPUStatCollection)
     except Exception as e:
         sys.stderr.write('Error on querying NVIDIA devices.'
                          ' Use --debug flag for details\n')

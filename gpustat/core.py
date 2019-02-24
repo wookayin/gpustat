@@ -200,7 +200,7 @@ class GPUStat(object):
             "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, " \
             "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
-        if show_power:
+        if show_power and 'power.draw' in self.entry:
             reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
             if show_power is True or 'limit' in show_power:
                 reps += "/ %(CPowL)s{entry[enforced.power.limit]:>3}%(C0)s "
@@ -267,7 +267,7 @@ class GPUStatCollection(object):
         self.driver_version = driver_version
 
     @staticmethod
-    def new_query():
+    def new_query(include_power=True):
         """Query the information of all the GPUs on local machine"""
 
         if N is None:
@@ -321,15 +321,16 @@ class GPUStatCollection(object):
             except N.NVMLError:
                 utilization = None  # Not supported
 
-            try:
-                power = N.nvmlDeviceGetPowerUsage(handle)
-            except N.NVMLError:
-                power = None
+            if include_power:
+                try:
+                    power = N.nvmlDeviceGetPowerUsage(handle)
+                except N.NVMLError:
+                    power = None
 
-            try:
-                power_limit = N.nvmlDeviceGetEnforcedPowerLimit(handle)
-            except N.NVMLError:
-                power_limit = None
+                try:
+                    power_limit = N.nvmlDeviceGetEnforcedPowerLimit(handle)
+                except N.NVMLError:
+                    power_limit = None
 
             try:
                 nv_comp_processes = \
@@ -366,14 +367,21 @@ class GPUStatCollection(object):
                 'name': name,
                 'temperature.gpu': temperature,
                 'utilization.gpu': utilization.gpu if utilization else None,
-                'power.draw': power // 1000 if power is not None else None,
-                'enforced.power.limit': power_limit // 1000
-                if power_limit is not None else None,
                 # Convert bytes into MBytes
                 'memory.used': memory.used // MB if memory else None,
                 'memory.total': memory.total // MB if memory else None,
                 'processes': processes,
             }
+
+            # optional entries
+            if include_power:
+                gpu_info.update({
+                    'power.draw': power // 1000
+                        if power is not None else None,  # noqa
+                    'enforced.power.limit': power_limit // 1000
+                        if power_limit is not None else None,  # noqa
+                })
+
             return gpu_info
 
         # 1. get the list of gpu and status
@@ -490,9 +498,9 @@ class GPUStatCollection(object):
         fp.flush()
 
 
-def new_query():
+def new_query(*args, **kwargs):
     '''
     Obtain a new GPUStatCollection instance by querying nvidia-smi
     to get the list of GPUs and running process information.
     '''
-    return GPUStatCollection.new_query()
+    return GPUStatCollection.new_query(*args, **kwargs)
