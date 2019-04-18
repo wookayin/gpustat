@@ -108,6 +108,15 @@ class GPUStat(object):
         return int(v) if v is not None else None
 
     @property
+    def fan(self):
+        """
+        Returns the fan percentage of GPU as an integer,
+        or None if the information is not available.
+        """
+        v = self.entry['fan']
+        return int(v) if v is not None else None
+
+    @property
     def utilization(self):
         """
         Returns the GPU utilization (in percentile),
@@ -147,6 +156,7 @@ class GPUStat(object):
                  show_user=False,
                  show_pid=False,
                  show_power=None,
+                 show_fan=None,
                  gpuname_width=16,
                  term=Terminal(),
                  ):
@@ -189,8 +199,12 @@ class GPUStat(object):
         # temperature and utilization
         reps = "%(C1)s[{entry[index]}]%(C0)s " \
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
-            "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, " \
-            "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
+            "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, "
+        
+        if show_fan:
+            reps += "%(C0)s{entry[fan]:>3} %%%(C0)s, "
+        
+        reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
         if show_power:
             reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
@@ -301,6 +315,11 @@ class GPUStatCollection(object):
                 temperature = None  # Not supported
 
             try:
+                fan = N.nvmlDeviceGetFanSpeed(handle)
+            except N.NVMLError:
+                fan = None  # Not supported
+
+            try:
                 memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
             except N.NVMLError:
                 memory = None  # Not supported
@@ -354,6 +373,7 @@ class GPUStatCollection(object):
                 'uuid': uuid,
                 'name': name,
                 'temperature.gpu': temperature,
+                'fan': fan,
                 'utilization.gpu': utilization.gpu if utilization else None,
                 'power.draw': power // 1000 if power is not None else None,
                 'enforced.power.limit': power_limit // 1000
@@ -403,7 +423,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        show_power=None, gpuname_width=16,
+                        show_power=None, show_fan=None, gpuname_width=16,
                         show_header=True,
                         eol_char=os.linesep,
                         **kwargs
@@ -453,6 +473,7 @@ class GPUStatCollection(object):
                        show_user=show_user,
                        show_pid=show_pid,
                        show_power=show_power,
+                       show_fan=show_fan,
                        gpuname_width=gpuname_width,
                        term=t_color)
             fp.write(eol_char)

@@ -79,6 +79,8 @@ def main(*argv):
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',
                         help='Display PID of running process')
+    parser.add_argument('-f', '--show-fan', action='store_true',
+                        help='Display GPU fan speed')
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
