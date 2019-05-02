@@ -113,7 +113,7 @@ class GPUStat(object):
         Returns the fan percentage of GPU as an integer,
         or None if the information is not available.
         """
-        v = self.entry['fan']
+        v = self.entry['fan.speed']
         return int(v) if v is not None else None
 
     @property
@@ -175,6 +175,8 @@ class GPUStat(object):
         colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
+        colors['FSpeed'] = _conditional(lambda: self.fan < 50,
+                                        term.yellow, term.bold_yellow)
         colors['CMemU'] = term.bold_yellow
         colors['CMemT'] = term.yellow
         colors['CMemP'] = term.yellow
@@ -200,10 +202,10 @@ class GPUStat(object):
         reps = "%(C1)s[{entry[index]}]%(C0)s " \
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
             "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, "
-        
+
         if show_fan:
-            reps += "%(C0)s{entry[fan]:>3} %%%(C0)s, "
-        
+            reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
+
         reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
 
         if show_power:
@@ -315,9 +317,9 @@ class GPUStatCollection(object):
                 temperature = None  # Not supported
 
             try:
-                fan = N.nvmlDeviceGetFanSpeed(handle)
+                fan_speed = N.nvmlDeviceGetFanSpeed(handle)
             except N.NVMLError:
-                fan = None  # Not supported
+                fan_speed = None  # Not supported
 
             try:
                 memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
@@ -373,7 +375,7 @@ class GPUStatCollection(object):
                 'uuid': uuid,
                 'name': name,
                 'temperature.gpu': temperature,
-                'fan': fan,
+                'fan.speed': fan_speed,
                 'utilization.gpu': utilization.gpu if utilization else None,
                 'power.draw': power // 1000 if power is not None else None,
                 'enforced.power.limit': power_limit // 1000
