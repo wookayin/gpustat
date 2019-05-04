@@ -201,7 +201,7 @@ class TestGPUStat(unittest.TestCase):
         fp = StringIO()
         gpustats.print_formatted(
             fp=fp, no_color=False, show_user=True,
-            show_cmd=True, show_pid=True, show_power=True, show_fan=True
+            show_cmd=True, show_pid=True, show_power=True, show_fan_speed=True
         )
 
         result = fp.getvalue()

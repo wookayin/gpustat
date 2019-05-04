@@ -101,17 +101,17 @@ class GPUStat(object):
     @property
     def temperature(self):
         """
-        Returns the temperature of GPU as an integer,
+        Returns the temperature (in celcius) of GPU as an integer,
         or None if the information is not available.
         """
         v = self.entry['temperature.gpu']
         return int(v) if v is not None else None
 
     @property
-    def fan(self):
+    def fan_speed(self):
         """
-        Returns the fan percentage of GPU as an integer,
-        or None if the information is not available.
+        Returns the fan speed percentage (0-100) of maximum intended speed
+        as an integer, or None if the information is not available.
         """
         v = self.entry['fan.speed']
         return int(v) if v is not None else None
@@ -156,7 +156,7 @@ class GPUStat(object):
                  show_user=False,
                  show_pid=False,
                  show_power=None,
-                 show_fan=None,
+                 show_fan_speed=None,
                  gpuname_width=16,
                  term=Terminal(),
                  ):
@@ -175,7 +175,7 @@ class GPUStat(object):
         colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
-        colors['FSpeed'] = _conditional(lambda: self.fan < 50,
+        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 50,
                                         term.yellow, term.bold_yellow)
         colors['CMemU'] = term.bold_yellow
         colors['CMemT'] = term.yellow
@@ -203,7 +203,7 @@ class GPUStat(object):
             "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
             "%(CTemp)s{entry[temperature.gpu]:>3}'C%(C0)s, "
 
-        if show_fan:
+        if show_fan_speed:
             reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
 
         reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
@@ -425,10 +425,9 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        show_power=None, show_fan=None, gpuname_width=16,
+                        show_power=None, show_fan_speed=None, gpuname_width=16,
                         show_header=True,
                         eol_char=os.linesep,
-                        **kwargs
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -475,7 +474,7 @@ class GPUStatCollection(object):
                        show_user=show_user,
                        show_pid=show_pid,
                        show_power=show_power,
-                       show_fan=show_fan,
+                       show_fan_speed=show_fan_speed,
                        gpuname_width=gpuname_width,
                        term=t_color)
             fp.write(eol_char)
