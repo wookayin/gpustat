@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Unit or integration tests for gpustat
 """
@@ -136,21 +134,23 @@ def _configure_mock(N, Process,
     }.get(handle, RuntimeError))
 
     mock_pid_map = {   # mock information for psutil...
-        48448:  ('user1', 'python'),
-        154213: ('user1', 'caffe'),
-        38310:  ('user3', 'python'),
-        153223: ('user2', 'python'),
-        194826: ('user3', 'caffe'),
-        192453: ('user1', 'torch'),
+        48448:  ('user1', 'python', 85.25, 3.1415),
+        154213: ('user1', 'caffe', 16.89, 100.00),
+        38310:  ('user3', 'python', 26.23, 99.9653),
+        153223: ('user2', 'python', 15.25, 0.0000),
+        194826: ('user3', 'caffe', 0.0, 12.5236),
+        192453: ('user1', 'torch', 123.2, 0.7312),
     }
 
     def _MockedProcess(pid):
         if pid not in mock_pid_map:
             raise psutil.NoSuchProcess(pid=pid)
-        username, cmdline = mock_pid_map[pid]
+        username, cmdline, cpuutil, memutil = mock_pid_map[pid]
         p = MagicMock()  # mocked process
         p.username.return_value = username
         p.cmdline.return_value = [cmdline]
+        p.cpu_percent.return_value = cpuutil
+        p.memory_percent.return_value = memutil
         return p
     Process.side_effect = _MockedProcess
 
@@ -163,7 +163,11 @@ MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
 [0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+ ├─  48448 (  85%,   17GB): python
+ └─ 153223 (  15%,     0B): python
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+ ├─ 192453 ( 123%, 4270MB): torch
+ └─ 194826 (   0%,   71GB): caffe
 [2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """  # noqa: E501
 
@@ -203,7 +207,8 @@ class TestGPUStat(unittest.TestCase):
         fp = StringIO()
         gpustats.print_formatted(
             fp=fp, no_color=False, show_user=True,
-            show_cmd=True, show_pid=True, show_power=True, show_fan_speed=True
+            show_cmd=True, show_pid=True, show_power=True, show_fan_speed=True,
+            show_full_cmd=True
         )
 
         result = fp.getvalue()
