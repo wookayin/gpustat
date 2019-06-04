@@ -81,8 +81,6 @@ def main(*argv):
                         help='Display PID of running process')
     parser.add_argument('-F', '--show-fan-speed', '--show-fan',
                         action='store_true', help='Display GPU fan speed')
-    parser.add_argument('-a', '--show-all', action='store_true',
-                        help='Display all properties above')
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
     parser.add_argument('-v', '--version', action='version',
@@ -92,6 +90,8 @@ def main(*argv):
         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
         help='Show GPU power usage or draw (and/or limit)'
     )
+    parser.add_argument('-a', '--show-all', action='store_true',
+                        help='Display all gpu properties above')
     parser.add_argument(
         '-i', '--interval', '--watch', nargs='?', type=float, default=0,
         help='Use watch mode if given; seconds to wait between updates'
@@ -111,6 +111,7 @@ def main(*argv):
     args = parser.parse_args(argv[1:])
     if args.show_all:
         args.show_cmd=args.show_user=args.show_pid=args.show_fan_speed=True
+        args.show_power=['draw,limit']
 
     if args.interval is None:  # with default value
         args.interval = 1.0
