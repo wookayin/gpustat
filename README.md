@@ -29,6 +29,7 @@ Options:
 * `-c`, `--show-cmd`   : Display the process name
 * `-p`, `--show-pid`   : Display PID of the process
 * `-F`, `--show-fan`   : Display GPU fan speed
+* `-a`, `--show-all`   : Display all gpu properties above
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
 * `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
