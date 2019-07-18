@@ -1,7 +1,7 @@
 from setuptools import setup
-import sys
 import os
 import re
+
 
 def read_readme():
     with open('README.md') as f:
