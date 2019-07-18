@@ -3,9 +3,6 @@ import sys
 import os
 import re
 
-IS_PY_2 = (sys.version_info[0] <= 2)
-
-
 def read_readme():
     with open('README.md') as f:
         return f.read()
@@ -24,7 +21,7 @@ def read_version():
 
 install_requires = [
     'six>=1.7',
-    'nvidia-ml-py>=7.352.0' if IS_PY_2 else 'nvidia-ml-py3>=7.352.0',
+    'nvidia-ml-py3>=7.352.0',
     'psutil',
     'blessings>=1.6',
 ]
@@ -50,7 +47,6 @@ setup(
         'Development Status :: 3 - Alpha',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX :: Linux',
-        'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Topic :: System :: Monitoring',
     ],
@@ -64,4 +60,5 @@ setup(
     },
     include_package_data=True,
     zip_safe=False,
+    python_requires='>=3.4',
 )
