@@ -3,6 +3,8 @@ Changelog for `gpustat`
 
 ## Unreleased
 
+## [v0.6.0][milestone-0.6] (2019/07/22)
+
 [milestone-0.6]: https://github.com/wookayin/gpustat/issues?q=milestone%3A0.6
 
 - [Feature] Align query datetime in the header with respect to `--gpuname-width` parameter.

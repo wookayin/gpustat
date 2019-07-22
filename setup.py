@@ -71,7 +71,7 @@ class DeployCommand(Command):
             sys.exit(ret)
 
         self.status('Creating git tags ...')
-        os.system('git tag v{0}'.format(read_version()))
+        os.system('git tag v{0}'.format(__version__))
         os.system('git tag --list')
         sys.exit()
 
