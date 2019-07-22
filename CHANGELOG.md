@@ -3,24 +3,31 @@ Changelog for `gpustat`
 
 ## Unreleased
 
-* Alias `gpustat --watch` to `-i`/`--interval` option.
-* Align query datetime in the header with respect to `--gpuname-width` parameter.
+[milestone-0.6]: https://github.com/wookayin/gpustat/issues?q=milestone%3A0.6
+
+- [Feature] Align query datetime in the header with respect to `--gpuname-width` parameter.
+- [Feature] Add a flag for fan speed (`-F`, `--show-fan`) (#62, #63), contributed by @bethune-bryant
+- [Enhancement] Alias `gpustat --watch` to `-i`/`--interval` option.
+- [Enhancement] Display NVIDIA driver version in the header (#53)
+- [Bugfix] Minor fixes on debug mode
+- [Etc] Travis: python 3.7
 
 
-## [v0.5.0][milestone-0.5]
+## [v0.5.0][milestone-0.5] (2018/09/09)
 
-* [Feature] Built-in watch mode (`gpustat -i`) (#7, #41).
-   * Contributed by @drons and @Stonesjtu, Thanks!
-* [Bug] Fix the problem extra character was showing (#32)
-* [Bug] Fix a bug in json mode where process information is unavailable (#45)
-* [Etc.] Refactoring of internal code structure: `gpustat` is now a package (#33)
-* [Etc.] More unit tests and better use of code styles (flake8)
+[milestone-0.5]: https://github.com/wookayin/gpustat/issues?q=milestone%3A0.5
 
-[milestone-0.5]: https://github.com/wookayin/gpustat/issues?utf8=%E2%9C%93&q=milestone%3A0.5
+- [Feature] Built-in watch mode (`gpustat -i`) (#7, #41).
+   - Contributed by @drons and @Stonesjtu, Thanks!
+- [Bug] Fix the problem extra character was showing (#32)
+- [Bug] Fix a bug in json mode where process information is unavailable (#45)
+- [Etc.] Refactoring of internal code structure: `gpustat` is now a package (#33)
+- [Etc.] More unit tests and better use of code styles (flake8)
+
 
 
 ## v0.4.1
-* Fix a bug that might happen when power_draw is not available (#16)
+- Fix a bug that might happen when power_draw is not available (#16)
 
 
 ## v0.4.0
