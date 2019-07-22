@@ -175,8 +175,8 @@ class GPUStat(object):
         colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
-        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 50,
-                                        term.yellow, term.bold_yellow)
+        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30,
+                                        term.cyan, term.bold_cyan)
         colors['CMemU'] = term.bold_yellow
         colors['CMemT'] = term.yellow
         colors['CMemP'] = term.yellow
