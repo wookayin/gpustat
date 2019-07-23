@@ -7,8 +7,8 @@ Changelog for `gpustat`
 
 [milestone-0.6]: https://github.com/wookayin/gpustat/issues?q=milestone%3A0.6
 
-- [Feature] Align query datetime in the header with respect to `--gpuname-width` parameter.
 - [Feature] Add a flag for fan speed (`-F`, `--show-fan`) (#62, #63), contributed by @bethune-bryant
+- [Enhancement] Align query datetime in the header with respect to `--gpuname-width` parameter.
 - [Enhancement] Alias `gpustat --watch` to `-i`/`--interval` option.
 - [Enhancement] Display NVIDIA driver version in the header (#53)
 - [Bugfix] Minor fixes on debug mode
