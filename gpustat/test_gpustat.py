@@ -24,7 +24,7 @@ except ImportError:
 MagicMock = mock.MagicMock
 
 
-def _configure_mock(N, Process,
+def _configure_mock(N, Process, virtual_memory,
                     scenario_nonexistent_pid=False):
     """
     Define mock behaviour for N: the pynvml module, and psutil.Process,
@@ -154,6 +154,10 @@ def _configure_mock(N, Process,
         return p
     Process.side_effect = _MockedProcess
 
+    def _MockedMem():
+        return mock_memory_t(total=8589934592, used=0)
+    virtual_memory.side_effect = _MockedMem
+
 
 MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 [0] GeForce GTX TITAN 0 | 80°C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
@@ -163,11 +167,11 @@ MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
 [0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
- ├─  48448 (  85%,   17GB): python
+ ├─  48448 (  85%,  257MB): python
  └─ 153223 (  15%,     0B): python
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
- ├─ 192453 ( 123%, 4270MB): torch
- └─ 194826 (   0%,   71GB): caffe
+ ├─ 192453 ( 123%,   59MB): torch
+ └─ 194826 (   0%, 1025MB): caffe
 [2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """  # noqa: E501
 
@@ -184,24 +188,26 @@ def remove_ansi_codes(s):
 
 class TestGPUStat(unittest.TestCase):
 
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_main(self, N, Process):
+    def test_main(self, N, Process, virtual_memory):
         """
         Test whether gpustat.main() works well. The behavior is mocked
         exactly as in test_new_query_mocked().
         """
-        _configure_mock(N, Process)
+        _configure_mock(N, Process, virtual_memory)
         sys.argv = ['gpustat']
         gpustat.main()
 
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_new_query_mocked(self, N, Process):
+    def test_new_query_mocked(self, N, Process, virtual_memory):
         """
         A basic functionality test, in a case where everything is just normal.
         """
-        _configure_mock(N, Process)
+        _configure_mock(N, Process, virtual_memory)
 
         gpustats = gpustat.new_query()
         fp = StringIO()
@@ -221,24 +227,28 @@ class TestGPUStat(unittest.TestCase):
         self.maxDiff = 4096
         self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL)
 
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_new_query_mocked_nonexistent_pid(self, N, Process):
+    def test_new_query_mocked_nonexistent_pid(self, N, Process,
+                                              virtual_memory):
         """
         Test a case where nvidia query returns non-existent pids (see #16, #18)
         """
-        _configure_mock(N, Process, scenario_nonexistent_pid=True)
+        _configure_mock(N, Process, virtual_memory,
+                        scenario_nonexistent_pid=True)
 
         gpustats = gpustat.new_query()
         gpustats.print_formatted(fp=sys.stdout)
 
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_attributes_and_items(self, N, Process):
+    def test_attributes_and_items(self, N, Process, virtual_memory):
         """
         Test whether each property of `GPUStat` instance is well-defined.
         """
-        _configure_mock(N, Process)
+        _configure_mock(N, Process, virtual_memory)
 
         g = gpustat.new_query()[1]  # includes N/A
         print("(keys) : %s" % str(g.keys()))
@@ -258,13 +268,14 @@ class TestGPUStat(unittest.TestCase):
         print("utilization : %s" % (g.utilization))
 
     @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_args_endtoend(self, N, Process):
+    def test_args_endtoend(self, N, Process, virtual_memory):
         """
         End-to-end testing given command line args.
         """
-        _configure_mock(N, Process)
+        _configure_mock(N, Process, virtual_memory)
 
         def capture_output(*args):
             f = StringIO()
@@ -289,10 +300,11 @@ class TestGPUStat(unittest.TestCase):
         s = capture_output('gpustat', '--no-header')
         self.assertIn("[0]", s.split('\n')[0])
 
+    @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_json_mocked(self, N, Process):
-        _configure_mock(N, Process)
+    def test_json_mocked(self, N, Process, virtual_memory):
+        _configure_mock(N, Process, virtual_memory)
         gpustats = gpustat.new_query()
 
         fp = StringIO()
