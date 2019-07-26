@@ -19,6 +19,7 @@ import os.path
 import platform
 import sys
 from datetime import datetime
+import asyncio
 
 from six.moves import cStringIO as StringIO
 
@@ -297,6 +298,8 @@ class GPUStat(object):
 
 class GPUStatCollection(object):
 
+    global_processes = {}
+
     def __init__(self, gpu_list, driver_version=None):
         self.gpus = gpu_list
 
@@ -304,6 +307,12 @@ class GPUStatCollection(object):
         self.hostname = platform.node()
         self.query_time = datetime.now()
         self.driver_version = driver_version
+
+    @staticmethod
+    def clean_processes():
+        for pid in list(GPUStatCollection.global_processes.keys()):
+            if not psutil.pid_exists(pid):
+                del GPUStatCollection.global_processes[pid]
 
     @staticmethod
     def new_query():
@@ -319,10 +328,15 @@ class GPUStatCollection(object):
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
 
-            def get_process_info(nv_process):
+            async def get_process_info(nv_process):
                 """Get the process information of specific pid"""
                 process = {}
-                ps_process = psutil.Process(pid=nv_process.pid)
+                first_pass = False
+                if nv_process.pid not in GPUStatCollection.global_processes:
+                    first_pass = True
+                    GPUStatCollection.global_processes[nv_process.pid] = \
+                        psutil.Process(pid=nv_process.pid)
+                ps_process = GPUStatCollection.global_processes[nv_process.pid]
                 process['username'] = ps_process.username()
                 # cmdline returns full path;
                 # as in `ps -o comm`, get short cmdnames.
@@ -336,12 +350,20 @@ class GPUStatCollection(object):
                     process['full_command'] = " ".join(_cmdline)
                 # Bytes to MBytes
                 process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
-                process['cpu_percent'] = ps_process.cpu_percent(interval=0.1)
+                process['cpu_percent'] = ps_process.cpu_percent()
+                if first_pass:
+                    await asyncio.sleep(0.1)
+                    process['cpu_percent'] = ps_process.cpu_percent()
                 process['cpu_memory_usage'] = \
                     round((ps_process.memory_percent() / 100.0) *
                           psutil.virtual_memory().total)
                 process['pid'] = nv_process.pid
                 return process
+
+            async def get_processes_infos(nv_processes):
+                res = await asyncio.gather(*(get_process_info(nv_process)
+                                           for nv_process in nv_processes))
+                return res
 
             name = _decode(N.nvmlDeviceGetName(handle))
             uuid = _decode(N.nvmlDeviceGetUUID(handle))
@@ -395,16 +417,13 @@ class GPUStatCollection(object):
                 processes = []
                 nv_comp_processes = nv_comp_processes or []
                 nv_graphics_processes = nv_graphics_processes or []
-                for nv_process in nv_comp_processes + nv_graphics_processes:
-                    # TODO: could be more information such as system memory
-                    # usage, CPU percentage, create time etc.
-                    try:
-                        process = get_process_info(nv_process)
-                        processes.append(process)
-                    except psutil.NoSuchProcess:
-                        # TODO: add some reminder for NVML broken context
-                        # e.g. nvidia-smi reset  or  reboot the system
-                        pass
+                try:
+                    processes = asyncio.run(get_processes_infos(
+                        nv_comp_processes + nv_graphics_processes))
+                except psutil.NoSuchProcess:
+                    # TODO: add some reminder for NVML broken context
+                    # e.g. nvidia-smi reset  or  reboot the system
+                    pass
 
             index = N.nvmlDeviceGetIndex(handle)
             gpu_info = {
@@ -422,6 +441,7 @@ class GPUStatCollection(object):
                 'memory.total': memory.total // MB if memory else None,
                 'processes': processes,
             }
+            GPUStatCollection.clean_processes()
             return gpu_info
 
         # 1. get the list of gpu and status
