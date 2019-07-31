@@ -18,8 +18,8 @@ import locale
 import os.path
 import platform
 import sys
+import time
 from datetime import datetime
-import asyncio
 
 from six.moves import cStringIO as StringIO
 
@@ -328,12 +328,10 @@ class GPUStatCollection(object):
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
 
-            async def get_process_info(nv_process):
+            def get_process_info(nv_process):
                 """Get the process information of specific pid"""
                 process = {}
-                first_pass = False
                 if nv_process.pid not in GPUStatCollection.global_processes:
-                    first_pass = True
                     GPUStatCollection.global_processes[nv_process.pid] = \
                         psutil.Process(pid=nv_process.pid)
                 ps_process = GPUStatCollection.global_processes[nv_process.pid]
@@ -351,19 +349,11 @@ class GPUStatCollection(object):
                 # Bytes to MBytes
                 process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
                 process['cpu_percent'] = ps_process.cpu_percent()
-                if first_pass:
-                    await asyncio.sleep(0.1)
-                    process['cpu_percent'] = ps_process.cpu_percent()
                 process['cpu_memory_usage'] = \
                     round((ps_process.memory_percent() / 100.0) *
                           psutil.virtual_memory().total)
                 process['pid'] = nv_process.pid
                 return process
-
-            async def get_processes_infos(nv_processes):
-                res = await asyncio.gather(*(get_process_info(nv_process)
-                                           for nv_process in nv_processes))
-                return res
 
             name = _decode(N.nvmlDeviceGetName(handle))
             uuid = _decode(N.nvmlDeviceGetUUID(handle))
@@ -417,13 +407,17 @@ class GPUStatCollection(object):
                 processes = []
                 nv_comp_processes = nv_comp_processes or []
                 nv_graphics_processes = nv_graphics_processes or []
-                try:
-                    processes = asyncio.run(get_processes_infos(
-                        nv_comp_processes + nv_graphics_processes))
-                except psutil.NoSuchProcess:
-                    # TODO: add some reminder for NVML broken context
-                    # e.g. nvidia-smi reset  or  reboot the system
-                    pass
+                for nv_process in nv_comp_processes + nv_graphics_processes:
+                    try:
+                        process = get_process_info(nv_process)
+                        processes.append(process)
+                    except psutil.NoSuchProcess:
+                        # TODO: add some reminder for NVML broken context
+                        # e.g. nvidia-smi reset  or  reboot the system
+                        pass
+                time.sleep(0.1)
+                for process in processes:
+                    process['cpu_percent'] = GPUStatCollection.global_processes[process['pid']].cpu_percent()
 
             index = N.nvmlDeviceGetIndex(handle)
             gpu_info = {
