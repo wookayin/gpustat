@@ -425,7 +425,7 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_user=False, show_pid=False,
-                        show_power=None, show_fan_speed=None, show_all=False, gpuname_width=16,
+                        show_power=None, show_fan_speed=None, gpuname_width=16,
                         show_header=True,
                         eol_char=os.linesep,
                         ):
