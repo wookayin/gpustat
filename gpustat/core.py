@@ -417,7 +417,9 @@ class GPUStatCollection(object):
                         pass
                 time.sleep(0.1)
                 for process in processes:
-                    process['cpu_percent'] = GPUStatCollection.global_processes[process['pid']].cpu_percent()
+                    pid = process['pid']
+                    cache_process = GPUStatCollection.global_processes[pid]
+                    process['cpu_percent'] = cache_process.cpu_percent()
 
             index = N.nvmlDeviceGetIndex(handle)
             gpu_info = {
