@@ -110,8 +110,11 @@ def main(*argv):
     )
     args = parser.parse_args(argv[1:])
     if args.show_all:
-        args.show_cmd=args.show_user=args.show_pid=args.show_fan_speed=True
-        args.show_power=['draw,limit']
+        args.show_cmd = True
+        args.show_user = True
+        args.show_pid = True
+        args.show_fan_speed = True
+        args.show_power = ['draw,limit']
         del args.show_all
 
     if args.interval is None:  # with default value
