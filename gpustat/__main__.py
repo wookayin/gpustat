@@ -45,7 +45,7 @@ def loop_gpustat(interval=1.0, **kwargs):
             try:
                 query_start = time.time()
                 with term.location(0, 0):
-                    print_gpustat(eol_char=term.clear_eol + '\n', **kwargs)  # noqa
+                    print_gpustat(eol_char=term.clear_eol + '\n', **kwargs)
                     print(term.clear_eos, end='')
                 query_duration = time.time() - query_start
                 sleep_duration = interval - query_duration
@@ -117,7 +117,8 @@ def main(*argv):
     if args.interval > 0:
         args.interval = max(0.1, args.interval)
         if args.json:
-            sys.stderr.write("Error: --json and --interval/-i can't be used together.\n")  # noqa
+            sys.stderr.write("Error: --json and --interval/-i "
+                             "can't be used together.\n")
             sys.exit(1)
 
         loop_gpustat(**vars(args))
