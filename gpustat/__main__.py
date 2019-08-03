@@ -75,6 +75,10 @@ def main(*argv):
 
     parser.add_argument('-c', '--show-cmd', action='store_true',
                         help='Display cmd name of running process')
+    parser.add_argument(
+        '-f', '--show-full-cmd', action='store_true',
+        help='Display full command and cpu stats of running process'
+    )
     parser.add_argument('-u', '--show-user', action='store_true',
                         help='Display username of running process')
     parser.add_argument('-p', '--show-pid', action='store_true',

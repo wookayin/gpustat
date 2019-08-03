@@ -27,6 +27,7 @@ Options:
 * `--no-color`         : Suppress colored output
 * `-u`, `--show-user`  : Display username of the process owner
 * `-c`, `--show-cmd`   : Display the process name
+* `-f`, `--show-full-cmd`   : Display full command and cpu stats of running process
 * `-p`, `--show-pid`   : Display PID of the process
 * `-F`, `--show-fan`   : Display GPU fan speed
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
