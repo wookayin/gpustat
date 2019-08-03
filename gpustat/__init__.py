@@ -6,7 +6,7 @@ __version__ = '1.0.0.dev0'
 
 from .core import GPUStat, GPUStatCollection
 from .core import new_query
-from .__main__ import print_gpustat, main
+from .cli import print_gpustat, main
 
 
 __all__ = (
