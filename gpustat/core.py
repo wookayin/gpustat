@@ -22,10 +22,12 @@ import time
 from datetime import datetime
 
 from six.moves import cStringIO as StringIO
-
 import psutil
 import pynvml as N
 from blessings import Terminal
+
+import gpustat.util as util
+
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -194,6 +196,7 @@ class GPUStat(object):
             term.magenta, term.bold_magenta
         )
         colors['CPowL'] = term.magenta
+        colors['CCmd'] = term.color(24)   # a bit dark
 
         if not with_colors:
             for k in list(colors.keys()):
@@ -249,30 +252,24 @@ class GPUStat(object):
             )
             return r
 
-        def bytes2human(in_bytes):
-            suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-            suffix = 0
-            result = in_bytes
-            while result > 9999 and suffix < len(suffixes):
-                result = result >> 10
-                suffix += 1
-            return "%d%s" % (result, suffixes[suffix])
-
         def full_process_info(p):
             r = "{C0} ├─ {:>6} ".format(
                     _repr(p['pid'], '--'), **colors
                 )
             r += "{C0}({CCPUUtil}{:4.0f}%{C0}, {CCPUMemU}{:>6}{C0})".format(
                     _repr(p['cpu_percent'], '--'),
-                    bytes2human(_repr(p['cpu_memory_usage'], 0)), **colors
+                    util.bytes2human(_repr(p['cpu_memory_usage'], 0)), **colors
                 )
-            r += "{C0}: {C1}{}{C0}".format(
-                    _repr(p['full_command'], '?'), **colors
-                )
+            full_command_pretty = util.prettify_commandline(
+                p['full_command'], colors['C1'], colors['CCmd'])
+            r += "{C0}: {CCmd}{}{C0}".format(
+                _repr(full_command_pretty, '?'),
+                **colors
+            )
             return r
 
         processes = self.entry['processes']
-        full_processes = ''
+        full_processes = []
         if processes is None:
             # None (not available)
             reps += ' ({})'.format(NOT_SUPPORTED)
@@ -280,9 +277,10 @@ class GPUStat(object):
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
-                    full_processes += '\n' + full_process_info(p)
-        if show_full_cmd:
-            reps += full_processes[::-1].replace('├', '└', 1)[::-1]
+                    full_processes.append('\n' + full_process_info(p))
+        if show_full_cmd and full_processes:
+            full_processes[-1] = full_processes[-1].replace('├', '└', 1)
+            reps += ''.join(full_processes)
         fp.write(reps)
         return fp
 
@@ -342,10 +340,10 @@ class GPUStatCollection(object):
                 if not _cmdline:
                     # sometimes, zombie or unknown (e.g. [kworker/8:2H])
                     process['command'] = '?'
-                    process['full_command'] = '?'
+                    process['full_command'] = ['?']
                 else:
                     process['command'] = os.path.basename(_cmdline[0])
-                    process['full_command'] = " ".join(_cmdline)
+                    process['full_command'] = _cmdline
                 # Bytes to MBytes
                 process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
                 process['cpu_percent'] = ps_process.cpu_percent()
@@ -415,6 +413,8 @@ class GPUStatCollection(object):
                         # TODO: add some reminder for NVML broken context
                         # e.g. nvidia-smi reset  or  reboot the system
                         pass
+
+                # TODO: Do not block if full process info is not requested
                 time.sleep(0.1)
                 for process in processes:
                     pid = process['pid']
