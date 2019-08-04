@@ -27,6 +27,7 @@ Options:
 * `--no-color`         : Suppress colored output
 * `-u`, `--show-user`  : Display username of the process owner
 * `-c`, `--show-cmd`   : Display the process name
+* `-f`, `--show-full-cmd`   : Display full command and cpu stats of running process
 * `-p`, `--show-pid`   : Display PID of the process
 * `-F`, `--show-fan`   : Display GPU fan speed
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
@@ -56,25 +57,29 @@ Install from [PyPI][pypi_gpustat]:
 pip install gpustat
 ```
 
+If you don't have root privilege, please try to install on user namespace: `pip install --user gpustat`.
+
 To install the latest version (master branch) via pip:
 
 ```
 pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
-If you don't have root privilege, please try to install on user namespace: `pip install --user`.
-Note that from v0.4, `gpustat.py` is no more a zero-dependency executable.
-However, in rare cases you'll need a single executable script (legacy), you can also try:
+Note that starting from v1.0, gpustat will support [only Python 3.5+](gh-issue-66).
+For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
 
-```
-wget https://raw.githubusercontent.com/wookayin/gpustat/v0.3.2/gpustat.py -O ~/.local/bin/gpustat
-chmod +x ~/.local/bin/gpustat    # Assuming ~/.local/bin is in your $PATH
-```
 
 [pypi_gpustat]: https://pypi.python.org/pypi/gpustat
 [gh-issue-10]: https://github.com/wookayin/gpustat/issues/10
 [gh-issue-41]: https://github.com/wookayin/gpustat/issues/41
 [gh-issue-54]: https://github.com/wookayin/gpustat/issues/54
+[gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
+
+
+Changelog
+---------
+
+See [CHANGELOG.md](CHANGELOG.md)
 
 
 License
