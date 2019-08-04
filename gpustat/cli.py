@@ -72,6 +72,8 @@ def main(*argv):
                               help='Force to output with colors')
     parser_color.add_argument('--no-color', action='store_true',
                               help='Suppress colored output')
+    parser.add_argument('-a', '--show-all', action='store_true',
+                        help='Display all gpu properties above')
 
     parser.add_argument('-c', '--show-cmd', action='store_true',
                         help='Display cmd name of running process')
@@ -111,6 +113,13 @@ def main(*argv):
         help='Allow to print additional informations for debugging.'
     )
     args = parser.parse_args(argv[1:])
+    if args.show_all:
+        args.show_cmd = True
+        args.show_user = True
+        args.show_pid = True
+        args.show_fan_speed = True
+        args.show_power = ['draw,limit']
+        del args.show_all
 
     if args.interval is None:  # with default value
         args.interval = 1.0
