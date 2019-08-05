@@ -119,7 +119,7 @@ def main(*argv):
         args.show_pid = True
         args.show_fan_speed = True
         args.show_power = ['draw,limit']
-        del args.show_all
+    del args.show_all
 
     if args.interval is None:  # with default value
         args.interval = 1.0
