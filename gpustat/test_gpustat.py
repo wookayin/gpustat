@@ -167,6 +167,12 @@ MOCK_EXPECTED_OUTPUT_DEFAULT = """\
 
 MOCK_EXPECTED_OUTPUT_FULL = """\
 [0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+"""  # noqa: E501
+
+MOCK_EXPECTED_OUTPUT_FULL_PROCESS = """\
+[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
  ├─  48448 (  85%,  257MB): python
  └─ 153223 (  15%,     0B): python
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
@@ -225,7 +231,7 @@ class TestGPUStat(unittest.TestCase):
         unescaped = '\n'.join(unescaped.split('\n')[1:])
 
         self.maxDiff = 4096
-        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL)
+        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL_PROCESS)
 
     @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
@@ -290,15 +296,34 @@ class TestGPUStat(unittest.TestCase):
                     )
             return f.getvalue()
 
+        def _remove_ansi_codes_and_header_line(s):
+            unescaped = remove_ansi_codes(s)
+            # remove first line (header)
+            unescaped = '\n'.join(unescaped.split('\n')[1:])
+            return unescaped
+
         s = capture_output('gpustat', )
-        unescaped = remove_ansi_codes(s)
-        # remove first line (header)
-        unescaped = '\n'.join(unescaped.split('\n')[1:])
         self.maxDiff = 4096
-        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_DEFAULT)
+        self.assertEqual(_remove_ansi_codes_and_header_line(s),
+                         MOCK_EXPECTED_OUTPUT_DEFAULT)
 
         s = capture_output('gpustat', '--no-header')
         self.assertIn("[0]", s.split('\n')[0])
+
+        s = capture_output('gpustat', '-a')  # --show-all
+        self.assertEqual(_remove_ansi_codes_and_header_line(s),
+                         MOCK_EXPECTED_OUTPUT_FULL)
+
+        s = capture_output('gpustat', '--color')
+        assert '\x0f' not in s, "Extra \\x0f found (see issue #32)"
+        self.assertEqual(_remove_ansi_codes_and_header_line(s),
+                         MOCK_EXPECTED_OUTPUT_DEFAULT)
+
+        s = capture_output('gpustat', '--no-color')
+        unescaped = remove_ansi_codes(s)
+        self.assertEqual(s, unescaped)   # should have no ansi code
+        self.assertEqual(_remove_ansi_codes_and_header_line(s),
+                         MOCK_EXPECTED_OUTPUT_DEFAULT)
 
     @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
