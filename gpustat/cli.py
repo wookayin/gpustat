@@ -5,7 +5,7 @@ from __future__ import print_function
 import sys
 import time
 
-from blessings import Terminal
+from blessed import Terminal
 
 from gpustat import __version__
 from .core import GPUStatCollection
@@ -60,9 +60,11 @@ def main(*argv):
         argv = list(sys.argv)
 
     # attach SIGPIPE handler to properly handle broken pipe
-    import signal
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-
+    try: # sigpipe not available under windows. just ignore in this case
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except Exception as e:
+        pass
     # arguments to gpustat
     import argparse
     parser = argparse.ArgumentParser()
