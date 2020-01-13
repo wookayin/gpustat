@@ -476,6 +476,9 @@ class GPUStatCollection(object):
         s += '\n'.join('  ' + str(g) for g in self.gpus)
         s += '\n])'
         return s
+    
+    def is_windows(self):
+        return 'windows' in platform.platform().lower()
 
     # --- Printing Functions ---
 
@@ -490,7 +493,7 @@ class GPUStatCollection(object):
             raise ValueError("--color and --no_color can't"
                              " be used at the same time")
 
-        if force_color:
+        if force_color and not self.is_windows():
             t_color = Terminal(kind='linux', force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
@@ -510,7 +513,7 @@ class GPUStatCollection(object):
             # no localization is available that easily
             # however,everybody should be able understand the
             # standard datetime string format %Y-%m-%d %H:%M:%S
-            if 'windows' in platform.platform().lower():
+            if self.is_windows():
                 # same as str(timestr) but without ms
                 timestr = self.query_time.strftime('%Y-%m-%d %H:%M:%S')
             else:
