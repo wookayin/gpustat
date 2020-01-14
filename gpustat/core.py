@@ -493,7 +493,7 @@ class GPUStatCollection(object):
             raise ValueError("--color and --no_color can't"
                              " be used at the same time")
 
-        if force_color and not self.is_windows():
+        if force_color:
             t_color = Terminal(kind='linux', force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
