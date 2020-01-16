@@ -282,7 +282,7 @@ class GPUStat(object):
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
-                    full_processes.append('\n' + full_process_info(p))
+                    full_processes.append(os.linesep + full_process_info(p))
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
@@ -325,7 +325,7 @@ class GPUStatCollection(object):
 
         def _decode(b):
             if isinstance(b, bytes):
-                return b.decode()    # for python3, to unicode
+                return b.decode('utf-8')    # for python3, to unicode
             return b
 
         def get_gpu_info(handle):
@@ -565,7 +565,7 @@ class GPUStatCollection(object):
         o = self.jsonify()
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
-        fp.write('\n')
+        fp.write(os.linesep)
         fp.flush()
 
 
