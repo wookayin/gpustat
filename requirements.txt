@@ -1,4 +1,4 @@
 six>=1.7
 nvidia-ml-py3
 psutil
-blessings>=1.6
+blessed>=1.16.1

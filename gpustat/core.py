@@ -24,7 +24,7 @@ from datetime import datetime
 from six.moves import cStringIO as StringIO
 import psutil
 import pynvml as N
-from blessings import Terminal
+from blessed import Terminal
 
 import gpustat.util as util
 
@@ -345,7 +345,10 @@ class GPUStatCollection(object):
                     process['command'] = os.path.basename(_cmdline[0])
                     process['full_command'] = _cmdline
                 # Bytes to MBytes
-                process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
+                # if drivers are not TTC this will be None. 
+                usedmem = nv_process.usedGpuMemory // MB if \
+                          nv_process.usedGpuMemory else None
+                process['gpu_memory_usage'] = usedmem
                 process['cpu_percent'] = ps_process.cpu_percent()
                 process['cpu_memory_usage'] = \
                     round((ps_process.memory_percent() / 100.0) *
@@ -473,6 +476,9 @@ class GPUStatCollection(object):
         s += '\n'.join('  ' + str(g) for g in self.gpus)
         s += '\n])'
         return s
+    
+    def is_windows(self):
+        return 'windows' in platform.platform().lower()
 
     # --- Printing Functions ---
 
@@ -491,7 +497,8 @@ class GPUStatCollection(object):
             t_color = Terminal(kind='linux', force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            t_color.normal = u'\x1b[0;10m'
+            try: t_color.normal = u'\x1b[0;10m'
+            except: pass
         elif no_color:
             t_color = Terminal(force_styling=None)
         else:
@@ -503,8 +510,15 @@ class GPUStatCollection(object):
 
         # header
         if show_header:
-            time_format = locale.nl_langinfo(locale.D_T_FMT)
-
+            # no localization is available that easily
+            # however,everybody should be able understand the
+            # standard datetime string format %Y-%m-%d %H:%M:%S
+            if self.is_windows():
+                # same as str(timestr) but without ms
+                timestr = self.query_time.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                time_format = locale.nl_langinfo(locale.D_T_FMT)
+                timestr = self.query_time.strftime(time_format)
             header_template = '{t.bold_white}{hostname:{width}}{t.normal}  '
             header_template += '{timestr}  '
             header_template += '{t.bold_black}{driver_version}{t.normal}'
@@ -512,7 +526,7 @@ class GPUStatCollection(object):
             header_msg = header_template.format(
                     hostname=self.hostname,
                     width=gpuname_width + 3,  # len("[?]")
-                    timestr=self.query_time.strftime(time_format),
+                    timestr=timestr,
                     driver_version=self.driver_version,
                     t=t_color,
                 )

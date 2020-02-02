@@ -79,7 +79,7 @@ install_requires = [
     'six>=1.7',
     'nvidia-ml-py3>=7.352.0',
     'psutil',
-    'blessings>=1.6',
+    'blessed>=1.16.1',
 ]
 
 tests_requires = [
