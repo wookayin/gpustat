@@ -32,6 +32,8 @@ import gpustat.util as util
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
 
+IS_WINDOWS = 'windows' in platform.platform().lower()
+
 
 class GPUStat(object):
 
@@ -164,8 +166,11 @@ class GPUStat(object):
                  show_power=None,
                  show_fan_speed=None,
                  gpuname_width=16,
-                 term=Terminal(),
+                 term=None,
                  ):
+        if term is None:
+            term = Terminal(stream=sys.stdout)
+
         # color settings
         colors = {}
 
@@ -345,7 +350,7 @@ class GPUStatCollection(object):
                     process['command'] = os.path.basename(_cmdline[0])
                     process['full_command'] = _cmdline
                 # Bytes to MBytes
-                # if drivers are not TTC this will be None. 
+                # if drivers are not TTC this will be None.
                 usedmem = nv_process.usedGpuMemory // MB if \
                           nv_process.usedGpuMemory else None
                 process['gpu_memory_usage'] = usedmem
@@ -476,9 +481,6 @@ class GPUStatCollection(object):
         s += '\n'.join('  ' + str(g) for g in self.gpus)
         s += '\n])'
         return s
-    
-    def is_windows(self):
-        return 'windows' in platform.platform().lower()
 
     # --- Printing Functions ---
 
@@ -494,11 +496,10 @@ class GPUStatCollection(object):
                              " be used at the same time")
 
         if force_color:
-            t_color = Terminal(kind='linux', force_styling=True)
+            t_color = Terminal(force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            try: t_color.normal = u'\x1b[0;10m'
-            except: pass
+            t_color._normal = u'\x1b[0;10m'
         elif no_color:
             t_color = Terminal(force_styling=None)
         else:
@@ -510,10 +511,8 @@ class GPUStatCollection(object):
 
         # header
         if show_header:
-            # no localization is available that easily
-            # however,everybody should be able understand the
-            # standard datetime string format %Y-%m-%d %H:%M:%S
-            if self.is_windows():
+            if IS_WINDOWS:
+                # no localization is available; just use a reasonable default
                 # same as str(timestr) but without ms
                 timestr = self.query_time.strftime('%Y-%m-%d %H:%M:%S')
             else:
