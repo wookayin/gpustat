@@ -2,10 +2,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import sys
 import time
 
-from blessings import Terminal
+from blessed import Terminal
 
 from gpustat import __version__
 from .core import GPUStatCollection
@@ -44,9 +45,12 @@ def loop_gpustat(interval=1.0, **kwargs):
         while 1:
             try:
                 query_start = time.time()
-                with term.location(0, 0):
-                    print_gpustat(eol_char=term.clear_eol + '\n', **kwargs)
-                    print(term.clear_eos, end='')
+
+                # Move cursor to (0, 0) but do not restore original cursor loc
+                print(term.move(0, 0), end='')
+                print_gpustat(eol_char=term.clear_eol + os.linesep, **kwargs)
+                print(term.clear_eos, end='')
+
                 query_duration = time.time() - query_start
                 sleep_duration = interval - query_duration
                 if sleep_duration > 0:
@@ -60,9 +64,11 @@ def main(*argv):
         argv = list(sys.argv)
 
     # attach SIGPIPE handler to properly handle broken pipe
-    import signal
-    signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-
+    try: # sigpipe not available under windows. just ignore in this case
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except Exception as e:
+        pass
     # arguments to gpustat
     import argparse
     parser = argparse.ArgumentParser()

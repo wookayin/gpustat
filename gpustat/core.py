@@ -24,13 +24,15 @@ from datetime import datetime
 from six.moves import cStringIO as StringIO
 import psutil
 import pynvml as N
-from blessings import Terminal
+from blessed import Terminal
 
 import gpustat.util as util
 
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
+
+IS_WINDOWS = 'windows' in platform.platform().lower()
 
 
 class GPUStat(object):
@@ -164,8 +166,11 @@ class GPUStat(object):
                  show_power=None,
                  show_fan_speed=None,
                  gpuname_width=16,
-                 term=Terminal(),
+                 term=None,
                  ):
+        if term is None:
+            term = Terminal(stream=sys.stdout)
+
         # color settings
         colors = {}
 
@@ -277,7 +282,7 @@ class GPUStat(object):
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
-                    full_processes.append('\n' + full_process_info(p))
+                    full_processes.append(os.linesep + full_process_info(p))
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
@@ -320,7 +325,7 @@ class GPUStatCollection(object):
 
         def _decode(b):
             if isinstance(b, bytes):
-                return b.decode()    # for python3, to unicode
+                return b.decode('utf-8')    # for python3, to unicode
             return b
 
         def get_gpu_info(handle):
@@ -345,7 +350,10 @@ class GPUStatCollection(object):
                     process['command'] = os.path.basename(_cmdline[0])
                     process['full_command'] = _cmdline
                 # Bytes to MBytes
-                process['gpu_memory_usage'] = nv_process.usedGpuMemory // MB
+                # if drivers are not TTC this will be None.
+                usedmem = nv_process.usedGpuMemory // MB if \
+                          nv_process.usedGpuMemory else None
+                process['gpu_memory_usage'] = usedmem
                 process['cpu_percent'] = ps_process.cpu_percent()
                 process['cpu_memory_usage'] = \
                     round((ps_process.memory_percent() / 100.0) *
@@ -488,10 +496,10 @@ class GPUStatCollection(object):
                              " be used at the same time")
 
         if force_color:
-            t_color = Terminal(kind='linux', force_styling=True)
+            t_color = Terminal(force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            t_color.normal = u'\x1b[0;10m'
+            t_color._normal = u'\x1b[0;10m'
         elif no_color:
             t_color = Terminal(force_styling=None)
         else:
@@ -503,8 +511,13 @@ class GPUStatCollection(object):
 
         # header
         if show_header:
-            time_format = locale.nl_langinfo(locale.D_T_FMT)
-
+            if IS_WINDOWS:
+                # no localization is available; just use a reasonable default
+                # same as str(timestr) but without ms
+                timestr = self.query_time.strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                time_format = locale.nl_langinfo(locale.D_T_FMT)
+                timestr = self.query_time.strftime(time_format)
             header_template = '{t.bold_white}{hostname:{width}}{t.normal}  '
             header_template += '{timestr}  '
             header_template += '{t.bold_black}{driver_version}{t.normal}'
@@ -512,7 +525,7 @@ class GPUStatCollection(object):
             header_msg = header_template.format(
                     hostname=self.hostname,
                     width=gpuname_width + 3,  # len("[?]")
-                    timestr=self.query_time.strftime(time_format),
+                    timestr=timestr,
                     driver_version=self.driver_version,
                     t=t_color,
                 )
@@ -552,7 +565,7 @@ class GPUStatCollection(object):
         o = self.jsonify()
         json.dump(o, fp, indent=4, separators=(',', ': '),
                   default=date_handler)
-        fp.write('\n')
+        fp.write(os.linesep)
         fp.flush()
 
 

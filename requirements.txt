@@ -1,4 +1,6 @@
-six>=1.7
-nvidia-ml-py3
-psutil
-blessings>=1.6
+# All required dependencies must be specified in setup.py, not here.
+#
+# This file lists additional packages that will be installed (BEFORE setup.py)
+# in the python environment (e.g. Travis CI; see .travis.yml).
+
+# vim: set ft=conf:
