@@ -65,7 +65,7 @@ To install the latest version (master branch) via pip:
 pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
-Note that starting from v1.0, gpustat will support [only Python 3.5+](gh-issue-66).
+Note that starting from v1.0, gpustat will support [only Python 3.4+][gh-issue-66].
 For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
 
 
