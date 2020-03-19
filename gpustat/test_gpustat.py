@@ -179,19 +179,19 @@ MOCK_EXPECTED_OUTPUT_DEFAULT = os.linesep.join("""\
 """.splitlines())  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL = os.linesep.join("""\
-[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
-[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 % (E:  88 %  D:  67 %),  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
-[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 %,  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
+[0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 % (E:  88 %  D:  67 %),  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
  ├─  48448 (  85%,  257MB): python
  └─ 153223 (  15%,     0B): python
-[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 %,   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
+[1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
  ├─ 192453 ( 123%,   59MB): torch
  └─ 194826 (   0%, 1025MB): caffe
-[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? %,  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
 
@@ -232,8 +232,8 @@ class TestGPUStat(unittest.TestCase):
         fp = StringIO()
         gpustats.print_formatted(
             fp=fp, no_color=False, show_user=True,
-            show_cmd=True, show_pid=True, show_power=True, show_fan_speed=True,
-            show_full_cmd=True
+            show_cmd=True, show_full_cmd=True, show_pid=True,
+            show_fan_speed=True, show_codec="enc,dec", show_power=True,
         )
 
         result = fp.getvalue()

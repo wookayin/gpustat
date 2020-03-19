@@ -181,8 +181,9 @@ class GPUStat(object):
                  show_full_cmd=False,
                  show_user=False,
                  show_pid=False,
-                 show_power=None,
                  show_fan_speed=None,
+                 show_codec="",
+                 show_power=None,
                  gpuname_width=16,
                  term=None,
                  ):
@@ -199,8 +200,11 @@ class GPUStat(object):
             except Exception:
                 return error_value
 
+        _ENC_THRESHOLD = 50
+
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
+        colors['CBold'] = term.bold
         colors['CName'] = term.blue
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
@@ -213,6 +217,12 @@ class GPUStat(object):
         colors['CUser'] = term.bold_black   # gray
         colors['CUtil'] = _conditional(lambda: self.utilization < 30,
                                        term.green, term.bold_green)
+        colors['CUtilEnc'] = _conditional(
+            lambda: self.utilization_enc < _ENC_THRESHOLD,
+            term.green, term.bold_green)
+        colors['CUtilDec'] = _conditional(
+            lambda: self.utilization_dec < _ENC_THRESHOLD,
+            term.green, term.bold_green)
         colors['CCPUUtil'] = term.green
         colors['CPowU'] = _conditional(
             lambda: float(self.power_draw) / self.power_limit < 0.4,
@@ -239,6 +249,17 @@ class GPUStat(object):
             reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
 
         reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
+        if show_codec:
+            codec_info = []
+            if "enc" in show_codec:
+                codec_info.append(
+                    "%(CBold)sE: %(C0)s"
+                    "%(CUtilEnc)s{entry[utilization.enc]:>3} %%%(C0)s")
+            if "dec" in show_codec:
+                codec_info.append(
+                    "%(CBold)sD: %(C0)s"
+                    "%(CUtilDec)s{entry[utilization.dec]:>3} %%%(C0)s")
+            reps += " ({})".format("  ".join(codec_info))
 
         if show_power:
             reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
@@ -518,7 +539,8 @@ class GPUStatCollection(object):
 
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_full_cmd=False, show_user=False,
-                        show_pid=False, show_power=None, show_fan_speed=None,
+                        show_pid=False, show_fan_speed=None,
+                        show_codec="", show_power=None,
                         gpuname_width=16, show_header=True,
                         eol_char=os.linesep,
                         ):
@@ -572,8 +594,9 @@ class GPUStatCollection(object):
                        show_full_cmd=show_full_cmd,
                        show_user=show_user,
                        show_pid=show_pid,
-                       show_power=show_power,
                        show_fan_speed=show_fan_speed,
+                       show_codec=show_codec,
+                       show_power=show_power,
                        gpuname_width=gpuname_width,
                        term=t_color)
             fp.write(eol_char)
