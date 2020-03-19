@@ -114,6 +114,18 @@ def _configure_mock(N, Process, virtual_memory,
         mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
     }.get(handle, RuntimeError))
 
+    N.nvmlDeviceGetEncoderUtilization.side_effect = _raise_ex(lambda handle: {
+        mock_handles[0]: [88, 167000],  # [value, sample_rate]
+        mock_handles[1]: [0, 167000],  # [value, sample_rate]
+        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
+    }.get(handle, RuntimeError))
+
+    N.nvmlDeviceGetDecoderUtilization.side_effect = _raise_ex(lambda handle: {
+        mock_handles[0]: [67, 167000],  # [value, sample_rate]
+        mock_handles[1]: [0, 167000],  # [value, sample_rate]
+        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
+    }.get(handle, RuntimeError))
+
     # running process information: a bit annoying...
     mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
 
@@ -273,6 +285,8 @@ class TestGPUStat(unittest.TestCase):
             g.memory_used, g.memory_total, g.memory_available))
         print("temperature : %d" % (g.temperature))
         print("utilization : %s" % (g.utilization))
+        print("utilization_enc : %s" % (g.utilization_enc))
+        print("utilization_dec : %s" % (g.utilization_dec))
 
     @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
     @mock.patch('psutil.virtual_memory')

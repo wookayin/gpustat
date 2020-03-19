@@ -133,6 +133,24 @@ class GPUStat(object):
         return int(v) if v is not None else None
 
     @property
+    def utilization_enc(self):
+        """
+        Returns the GPU encoder utilization (in percentile),
+        or None if the information is not available.
+        """
+        v = self.entry['utilization.enc']
+        return int(v) if v is not None else None
+
+    @property
+    def utilization_dec(self):
+        """
+        Returns the GPU decoder utilization (in percentile),
+        or None if the information is not available.
+        """
+        v = self.entry['utilization.dec']
+        return int(v) if v is not None else None
+
+    @property
     def power_draw(self):
         """
         Returns the GPU power usage in Watts,
@@ -387,6 +405,16 @@ class GPUStatCollection(object):
                 utilization = None  # Not supported
 
             try:
+                utilization_enc = N.nvmlDeviceGetEncoderUtilization(handle)
+            except N.NVMLError:
+                utilization_enc = None  # Not supported
+
+            try:
+                utilization_dec = N.nvmlDeviceGetDecoderUtilization(handle)
+            except N.NVMLError:
+                utilization_dec = None  # Not supported
+
+            try:
                 power = N.nvmlDeviceGetPowerUsage(handle)
             except N.NVMLError:
                 power = None
@@ -437,6 +465,10 @@ class GPUStatCollection(object):
                 'temperature.gpu': temperature,
                 'fan.speed': fan_speed,
                 'utilization.gpu': utilization.gpu if utilization else None,
+                'utilization.enc':
+                    utilization_enc[0] if utilization_enc else None,
+                'utilization.dec':
+                    utilization_dec[0] if utilization_dec else None,
                 'power.draw': power // 1000 if power is not None else None,
                 'enforced.power.limit': power_limit // 1000
                 if power_limit is not None else None,
