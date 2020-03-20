@@ -183,7 +183,7 @@ class GPUStat(object):
                  show_pid=False,
                  show_fan_speed=None,
                  show_codec="",
-                 show_power=None,
+                 show_power="",
                  gpuname_width=16,
                  term=None,
                  ):
@@ -264,7 +264,7 @@ class GPUStat(object):
 
         if show_power:
             reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
-            if show_power is True or 'limit' in show_power:
+            if 'limit' in show_power:
                 reps += "/ %(CPowL)s{entry[enforced.power.limit]:>3}%(C0)s "
                 reps += "%(CPowL)sW%(C0)s"
             else:
@@ -539,7 +539,7 @@ class GPUStatCollection(object):
     def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
                         show_cmd=False, show_full_cmd=False, show_user=False,
                         show_pid=False, show_fan_speed=None,
-                        show_codec="", show_power=None,
+                        show_codec="", show_power="",
                         gpuname_width=16, show_header=True,
                         eol_char=os.linesep,
                         ):

@@ -231,7 +231,7 @@ class TestGPUStat(object):
         gpustats.print_formatted(
             fp=fp, no_color=False, show_user=True,
             show_cmd=True, show_full_cmd=True, show_pid=True,
-            show_fan_speed=True, show_codec="enc,dec", show_power=True,
+            show_fan_speed=True, show_codec="enc,dec", show_power="limit",
         )
 
         result = fp.getvalue()
@@ -332,7 +332,7 @@ class TestGPUStat(object):
         TEST_OPTS = []
         TEST_OPTS += ['-a', '-c', '-u', '-p', '-e', '-P', '-f']
         TEST_OPTS += [('-e', ''), ('-P', '')]
-        TEST_OPTS += [('-e', 'enc,dec'), '-Plimit,draw']
+        TEST_OPTS += [('-e', 'enc,dec'), '-Pdraw,limit']
         TEST_OPTS += ['-cup', '-cpu', '-cufP']  # 'cpuePf'
 
         for opt in TEST_OPTS:
