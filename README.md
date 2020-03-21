@@ -77,6 +77,12 @@ For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
 [gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
 
 
+Tests
+-----
+
+To run the test suite, execute `PYTEST_ADDOPTS="-s" python setup.py test`
+
+
 Changelog
 ---------
 
