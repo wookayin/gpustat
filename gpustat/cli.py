@@ -93,15 +93,18 @@ def main(*argv):
                         help='Display PID of running process')
     parser.add_argument('-F', '--show-fan-speed', '--show-fan',
                         action='store_true', help='Display GPU fan speed')
-    parser.add_argument('--json', action='store_true', default=False,
-                        help='Print all the information in JSON format')
-    parser.add_argument('-v', '--version', action='version',
-                        version=('gpustat %s' % __version__))
+    parser.add_argument(
+        '-e', '--show-codec', nargs='?', const='enc,dec', default='',
+        choices=['enc', 'dec', 'enc,dec'],
+        help='Show encoder/decoder utilization'
+    )
     parser.add_argument(
         '-P', '--show-power', nargs='?', const='draw,limit',
         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
         help='Show GPU power usage or draw (and/or limit)'
     )
+    parser.add_argument('--json', action='store_true', default=False,
+                        help='Print all the information in JSON format')
     parser.add_argument(
         '-i', '--interval', '--watch', nargs='?', type=float, default=0,
         help='Use watch mode if given; seconds to wait between updates'
@@ -118,12 +121,15 @@ def main(*argv):
         '--debug', action='store_true', default=False,
         help='Allow to print additional informations for debugging.'
     )
+    parser.add_argument('-v', '--version', action='version',
+                        version=('gpustat %s' % __version__))
     args = parser.parse_args(argv[1:])
     if args.show_all:
         args.show_cmd = True
         args.show_user = True
         args.show_pid = True
         args.show_fan_speed = True
+        args.show_codec = 'enc,dec'
         args.show_power = 'draw,limit'
     del args.show_all
 

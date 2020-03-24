@@ -30,6 +30,7 @@ Options:
 * `-f`, `--show-full-cmd`   : Display full command and cpu stats of running process
 * `-p`, `--show-pid`   : Display PID of the process
 * `-F`, `--show-fan`   : Display GPU fan speed
+* `-e`, `--show-codec` : Display encoder and/or decoder utilization
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `-a`, `--show-all`   : Display all gpu properties above
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
