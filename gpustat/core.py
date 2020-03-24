@@ -225,7 +225,8 @@ class GPUStat(object):
             term.green, term.bold_green)
         colors['CCPUUtil'] = term.green
         colors['CPowU'] = _conditional(
-            lambda: float(self.power_draw) / self.power_limit < 0.4,
+            lambda: (self.power_limit is not None and
+                     float(self.power_draw) / self.power_limit < 0.4),
             term.magenta, term.bold_magenta
         )
         colors['CPowL'] = term.magenta
