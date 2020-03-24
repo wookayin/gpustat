@@ -95,7 +95,7 @@ def main(*argv):
                         action='store_true', help='Display GPU fan speed')
     parser.add_argument(
         '-e', '--show-codec', nargs='?', const='enc,dec', default='',
-        choices=['enc', 'dec', 'enc,dec'],
+        choices=['', 'enc', 'dec', 'enc,dec'],
         help='Show encoder/decoder utilization'
     )
     parser.add_argument(

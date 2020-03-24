@@ -9,6 +9,7 @@ from __future__ import absolute_import
 import unittest
 import sys
 import os
+import shlex
 from collections import namedtuple
 
 import psutil
@@ -151,7 +152,7 @@ def _configure_mock(N, Process, virtual_memory,
         154213: ('user1', 'caffe', 16.89, 100.00),
         38310:  ('user3', 'python', 26.23, 99.9653),
         153223: ('user2', 'python', 15.25, 0.0000),
-        194826: ('user3', 'caffe', 0.0, 12.5236),
+        194826: ('user3', '/local/bin/caffe', 0.0, 12.5236),
         192453: ('user1', 'torch', 123.2, 0.7312),
     }
 
@@ -190,7 +191,7 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
  └─ 153223 (  15%,     0B): python
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
  ├─ 192453 ( 123%,   59MB): torch
- └─ 194826 (   0%, 1025MB): caffe
+ └─ 194826 (   0%, 1025MB): /local/bin/caffe
 [2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
@@ -288,28 +289,29 @@ class TestGPUStat(unittest.TestCase):
         print("utilization_enc : %s" % (g.utilization_enc))
         print("utilization_dec : %s" % (g.utilization_dec))
 
+    @staticmethod
+    def capture_output(*args):
+        f = StringIO()
+        import contextlib
+
+        with contextlib.redirect_stdout(f):  # requires python 3.4+
+            try:
+                gpustat.main(*args)
+            except SystemExit as e:
+                if e.code != 0:
+                    raise AssertionError(
+                        "Argparse failed (see above error message)")
+        return f.getvalue()
+
+
     @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
     @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
-    def test_args_endtoend(self, N, Process, virtual_memory):
-        """
-        End-to-end testing given command line args.
-        """
+    def test_args_commandline(self, N, Process, virtual_memory):
+        """Tests the end gpustat CLI."""
         _configure_mock(N, Process, virtual_memory)
-
-        def capture_output(*args):
-            f = StringIO()
-            import contextlib
-
-            with contextlib.redirect_stdout(f):  # requires python 3.4+
-                try:
-                    gpustat.main(*args)
-                except SystemExit:
-                    raise AssertionError(
-                        "Argparse failed (see above error message)"
-                    )
-            return f.getvalue()
+        capture_output = self.capture_output
 
         def _remove_ansi_codes_and_header_line(s):
             unescaped = remove_ansi_codes(s)
@@ -321,6 +323,10 @@ class TestGPUStat(unittest.TestCase):
         self.maxDiff = 4096
         self.assertEqual(_remove_ansi_codes_and_header_line(s),
                          MOCK_EXPECTED_OUTPUT_DEFAULT)
+
+        s = capture_output('gpustat', '--version')
+        assert s.startswith('gpustat ')
+        print(s)
 
         s = capture_output('gpustat', '--no-header')
         self.assertIn("[0]", s.splitlines()[0])
@@ -340,6 +346,40 @@ class TestGPUStat(unittest.TestCase):
         self.assertEqual(_remove_ansi_codes_and_header_line(s),
                          MOCK_EXPECTED_OUTPUT_DEFAULT)
 
+    @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
+    @mock.patch('psutil.virtual_memory')
+    @mock.patch('psutil.Process')
+    @mock.patch('gpustat.core.N')
+    def test_args_commandline_showoptions(self, N, Process, virtual_memory):
+        """Tests gpustat CLI with a variety of --show-xxx options. """
+
+        _configure_mock(N, Process, virtual_memory)
+        capture_output = self.capture_output
+        print('')
+
+        TEST_OPTS = []
+        TEST_OPTS += ['-a', '-c', '-u', '-p', '-e', '-P', '-f']
+        TEST_OPTS += [('-e', ''), ('-P', '')]
+        TEST_OPTS += [('-e', 'enc,dec'), '-Plimit,draw']
+        TEST_OPTS += ['-cup', '-cpu', '-cufP']  # 'cpuePf'
+
+        for opt in TEST_OPTS:
+            if isinstance(opt, str):
+                opt = [opt]
+
+            print('\x1b[30m\x1b[43m',  # black_on_yellow
+                  '$ gpustat ' + ' '.join(shlex.quote(o) for o in opt),
+                  '\x1b(B\x1b[m', sep='')
+            s = capture_output('gpustat', *opt)
+
+            # TODO: Validate output without hardcoding expected outputs
+            print(s)
+
+        # Finally, unknown args
+        with self.assertRaises(AssertionError):
+            capture_output('gpustat', '--unrecognized-args-in-test')
+
+
     @mock.patch('psutil.virtual_memory')
     @mock.patch('psutil.Process')
     @mock.patch('gpustat.core.N')
@@ -352,7 +392,9 @@ class TestGPUStat(unittest.TestCase):
 
         import json
         j = json.loads(fp.getvalue())
-        print(j)
+
+        from pprint import pprint
+        pprint(j)
 
 
 if __name__ == '__main__':
