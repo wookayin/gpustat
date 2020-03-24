@@ -152,7 +152,7 @@ def _configure_mock(N, Process, virtual_memory,
         154213: ('user1', 'caffe', 16.89, 100.00),
         38310:  ('user3', 'python', 26.23, 99.9653),
         153223: ('user2', 'python', 15.25, 0.0000),
-        194826: ('user3', '/local/bin/caffe', 0.0, 12.5236),
+        194826: ('user3', 'caffe', 0.0, 12.5236),
         192453: ('user1', 'torch', 123.2, 0.7312),
     }
 
@@ -191,7 +191,7 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
  └─ 153223 (  15%,     0B): python
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
  ├─ 192453 ( 123%,   59MB): torch
- └─ 194826 (   0%, 1025MB): /local/bin/caffe
+ └─ 194826 (   0%, 1025MB): caffe
 [2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
