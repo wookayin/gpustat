@@ -1,12 +1,13 @@
 Changelog for `gpustat`
 =======================
 
-## Unreleased (v1.0)[milestone-1.0]
+## Unreleased [(v1.0)][milestone-1.0]
 
 [milestone-1.0]: https://github.com/wookayin/gpustat/issues?q=milestone%3A1.0
 
 - [Breaking changes] Retire Python 2 (#66). Add CI tests for python 3.8.
 - [Breaking changes] Backward-incompatible changes on JSON fields (#10)
+- [New Feature] Add '--show-codec (-e)' option: display encoder/decoder utilization (#79)
 - [Enhancement] Re-add windows support, by switching to `blessed` (#78, @skjerns)
 - [Enhancement] Use unicode symbols (#58, @arinbjornk)
 - [Enhancement] Add full process information (-f) (#65, @bethune-bryant)
