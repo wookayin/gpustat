@@ -63,7 +63,7 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
         when(N).nvmlDeviceGetIndex(handle)\
             .thenReturn(i)
         when(N).nvmlDeviceGetName(handle)\
-            .thenReturn(b'GeForce GTX TITAN %d' % i)
+            .thenReturn(('GeForce GTX TITAN %d' % i).encode())
         when(N).nvmlDeviceGetUUID(handle)\
             .thenReturn({
                 0: b'GPU-10fb0fbd-2696-43f3-467f-d280d906a107',
