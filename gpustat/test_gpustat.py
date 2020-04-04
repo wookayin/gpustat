@@ -351,6 +351,20 @@ class TestGPUStat(object):
         with pytest.raises(AssertionError):
             capture_output('gpustat', '--unrecognized-args-in-test')
 
+    @pytest.mark.skipif(sys.platform == 'win32', reason="Do not run on Windows")
+    def test_no_TERM(self, scenario_basic, monkeypatch):
+        """--color should work well even when executed without TERM,
+        e.g. ssh localhost gpustat --color"""
+        monkeypatch.setenv("TERM", "")
+
+        s = self.capture_output('gpustat', '--color', '--no-header').rstrip()
+        print(s)
+        assert remove_ansi_codes(s) == MOCK_EXPECTED_OUTPUT_DEFAULT, \
+            "wrong gpustat output"
+
+        assert '\x1b[36m' in s, "should contain cyan color code"
+        assert '\x0f' not in s, "Extra \\x0f found (see issue #32)"
+
     def test_json_mocked(self, scenario_basic):
         gpustats = gpustat.new_query()
 

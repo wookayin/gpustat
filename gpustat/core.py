@@ -549,7 +549,8 @@ class GPUStatCollection(object):
                              " be used at the same time")
 
         if force_color:
-            t_color = Terminal(force_styling=True)
+            TERM = os.getenv('TERM') or 'xterm-256color'
+            t_color = Terminal(kind=TERM, force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
             t_color._normal = u'\x1b[0;10m'
