@@ -83,8 +83,8 @@ install_requires = [
 ]
 
 tests_requires = [
-    'mock>=2.0.0',
-    'pytest<5.0',
+    'pytest>=5.4.1',
+    'mockito>=1.2.1',
 ]
 
 setup(

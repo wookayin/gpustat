@@ -6,148 +6,136 @@ Unit or integration tests for gpustat
 from __future__ import print_function
 from __future__ import absolute_import
 
-import unittest
 import sys
 import os
 import shlex
 from collections import namedtuple
+from io import StringIO    # Python 3 only
 
 import psutil
 import pynvml
-from six.moves import cStringIO as StringIO
+
+import pytest
+from mockito import when, mock, unstub
 
 import gpustat
 
-try:
-    import unittest.mock as mock
-except ImportError:
-    import mock
 
-MagicMock = mock.MagicMock
+MB = 1024 * 1024
 
 
-def _configure_mock(N, Process, virtual_memory,
-                    scenario_nonexistent_pid=False):
-    """
-    Define mock behaviour for N: the pynvml module, and psutil.Process,
-    which should be MagicMock objects from unittest.mock.
-    """
+def remove_ansi_codes(s):
+    import re
+    s = re.compile(r'\x1b[^m]*m').sub('', s)
+    s = re.compile(r'\x0f').sub('', s)
+    return s
 
-    # Restore some non-mock objects (such as exceptions)
-    for attr in dir(pynvml):
-        if attr.startswith('NVML'):
-            setattr(N, attr, getattr(pynvml, attr))
+# -----------------------------------------------------------------------------
+
+
+def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
+    """Define mock behaviour for pynvml and psutil.{Process,virtual_memory}."""
+
+    # without following patch, unhashable NVMLError makes unit test crash
+    N.NVMLError.__hash__ = lambda _: 0
     assert issubclass(N.NVMLError, BaseException)
 
-    # without following patch, unhashable NVMLError distrubs unit test
-    N.NVMLError.__hash__ = lambda _: 0
+    when(N).nvmlInit().thenReturn()
+    when(N).nvmlShutdown().thenReturn()
+    when(N).nvmlSystemGetDriverVersion().thenReturn('415.27.mock')
 
-    # mock-patch every nvml**** functions used in gpustat.
-    N.nvmlInit = MagicMock()
-    N.nvmlShutdown = MagicMock()
-    N.nvmlDeviceGetCount.return_value = 3
-    N.nvmlSystemGetDriverVersion.return_value = '415.27.mock'
-
+    NUM_GPUS = 3
     mock_handles = ['mock-handle-%d' % i for i in range(3)]
+    when(N).nvmlDeviceGetCount().thenReturn(NUM_GPUS)
 
-    def _raise_ex(fn):
-        """Decorator to let exceptions returned from the callable re-throwed."""  # noqa:E501
-        def _decorated(*args, **kwargs):
-            v = fn(*args, **kwargs)
+    def _return_or_raise(v):
+        """Return a callable for thenAnswer() to let exceptions re-raised."""
+        def _callable(*args, **kwargs):
             if isinstance(v, Exception):
                 raise v
             return v
-        return _decorated
+        return _callable
 
-    N.nvmlDeviceGetHandleByIndex.side_effect = \
-        lambda index: mock_handles[index]
-    N.nvmlDeviceGetIndex.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: 0,
-        mock_handles[1]: 1,
-        mock_handles[2]: 2,
-    }.get(handle, RuntimeError))
-    N.nvmlDeviceGetName.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: b'GeForce GTX TITAN 0',
-        mock_handles[1]: b'GeForce GTX TITAN 1',
-        mock_handles[2]: b'GeForce GTX TITAN 2',
-    }.get(handle, RuntimeError))
-    N.nvmlDeviceGetUUID.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: b'GPU-10fb0fbd-2696-43f3-467f-d280d906a107',
-        mock_handles[1]: b'GPU-d1df4664-bb44-189c-7ad0-ab86c8cb30e2',
-        mock_handles[2]: b'GPU-50205d95-57b6-f541-2bcb-86c09afed564',
-    }.get(handle, RuntimeError))
+    for i in range(NUM_GPUS):
+        handle = mock_handles[i]
+        when(N).nvmlDeviceGetHandleByIndex(i)\
+            .thenReturn(handle)
+        when(N).nvmlDeviceGetIndex(handle)\
+            .thenReturn(i)
+        when(N).nvmlDeviceGetName(handle)\
+            .thenReturn(b'GeForce GTX TITAN %d' % i)
+        when(N).nvmlDeviceGetUUID(handle)\
+            .thenReturn({
+                0: b'GPU-10fb0fbd-2696-43f3-467f-d280d906a107',
+                1: b'GPU-d1df4664-bb44-189c-7ad0-ab86c8cb30e2',
+                2: b'GPU-50205d95-57b6-f541-2bcb-86c09afed564',
+            }[i])
 
-    N.nvmlDeviceGetTemperature = _raise_ex(lambda handle, _: {
-        mock_handles[0]: 80,
-        mock_handles[1]: 36,
-        mock_handles[2]: 71,
-    }.get(handle, RuntimeError))
+        when(N).nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU)\
+            .thenReturn([80, 36, 71][i])
+        when(N).nvmlDeviceGetFanSpeed(handle)\
+            .thenReturn([16, 53, 100][i])
+        when(N).nvmlDeviceGetPowerUsage(handle)\
+            .thenAnswer(_return_or_raise({
+                0: 125000, 1: N.NVMLError_NotSupported(), 2: 250000
+            }[i]))
+        when(N).nvmlDeviceGetEnforcedPowerLimit(handle)\
+            .thenAnswer(_return_or_raise({
+                0: 250000, 1: 250000, 2: N.NVMLError_NotSupported()
+            }[i]))
 
-    N.nvmlDeviceGetFanSpeed = _raise_ex(lambda handle: {
-        mock_handles[0]: 16,
-        mock_handles[1]: 53,
-        mock_handles[2]: 100,
-    }.get(handle, RuntimeError))
+        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
+        when(N).nvmlDeviceGetMemoryInfo(handle)\
+            .thenAnswer(_return_or_raise({
+                0: mock_memory_t(total=12883853312, used=8000*MB),
+                1: mock_memory_t(total=12781551616, used=9000*MB),
+                2: mock_memory_t(total=12781551616, used=0),
+            }[i]))
 
-    N.nvmlDeviceGetPowerUsage = _raise_ex(lambda handle: {
-        mock_handles[0]: 125000,
-        mock_handles[1]: N.NVMLError_NotSupported(),  # Not Supported
-        mock_handles[2]: 250000,
-    }.get(handle, RuntimeError))
+        mock_utilization_t = namedtuple("Utilization_t", ['gpu', 'memory'])
+        when(N).nvmlDeviceGetUtilizationRates(handle)\
+            .thenAnswer(_return_or_raise({
+                0: mock_utilization_t(gpu=76, memory=0),
+                1: mock_utilization_t(gpu=0, memory=0),
+                2: N.NVMLError_NotSupported(),  # Not Supported
+            }[i]))
 
-    N.nvmlDeviceGetEnforcedPowerLimit = _raise_ex(lambda handle: {
-        mock_handles[0]: 250000,
-        mock_handles[1]: 250000,
-        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
-    }.get(handle, RuntimeError))
+        when(N).nvmlDeviceGetEncoderUtilization(handle)\
+            .thenAnswer(_return_or_raise({
+                0: [88, 167000],  # [value, sample_rate]
+                1: [0, 167000],   # [value, sample_rate]
+                2: N.NVMLError_NotSupported(),  # Not Supported
+            }[i]))
+        when(N).nvmlDeviceGetDecoderUtilization(handle)\
+            .thenAnswer(_return_or_raise({
+                0: [67, 167000],  # [value, sample_rate]
+                1: [0, 167000],   # [value, sample_rate]
+                2: N.NVMLError_NotSupported(),  # Not Supported
+            }[i]))
 
-    mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
-    N.nvmlDeviceGetMemoryInfo.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: mock_memory_t(total=12883853312, used=8000*MB),
-        mock_handles[1]: mock_memory_t(total=12781551616, used=9000*MB),
-        mock_handles[2]: mock_memory_t(total=12781551616, used=0),
-    }.get(handle, RuntimeError))
+        # running process information: a bit annoying...
+        mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
 
-    mock_utilization_t = namedtuple("Utilization_t", ['gpu', 'memory'])
-    N.nvmlDeviceGetUtilizationRates.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: mock_utilization_t(gpu=76, memory=0),
-        mock_handles[1]: mock_utilization_t(gpu=0, memory=0),
-        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
-    }.get(handle, RuntimeError))
+        if scenario_nonexistent_pid:
+            mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
+        else:
+            mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
+        when(N).nvmlDeviceGetComputeRunningProcesses(handle)\
+            .thenAnswer(_return_or_raise({
+                0: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],
+                1: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],
+                2: mock_processes_gpu2_erratic,   # Not Supported or non-existent
+            }[i]))
 
-    N.nvmlDeviceGetEncoderUtilization.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: [88, 167000],  # [value, sample_rate]
-        mock_handles[1]: [0, 167000],  # [value, sample_rate]
-        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
-    }.get(handle, RuntimeError))
+        when(N).nvmlDeviceGetGraphicsRunningProcesses(handle)\
+            .thenAnswer(_return_or_raise({
+                0: [],
+                1: [],
+                2: N.NVMLError_NotSupported(),
+            }[i]))
 
-    N.nvmlDeviceGetDecoderUtilization.side_effect = _raise_ex(lambda handle: {
-        mock_handles[0]: [67, 167000],  # [value, sample_rate]
-        mock_handles[1]: [0, 167000],  # [value, sample_rate]
-        mock_handles[2]: N.NVMLError_NotSupported(),  # Not Supported
-    }.get(handle, RuntimeError))
-
-    # running process information: a bit annoying...
-    mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
-
-    if scenario_nonexistent_pid:
-        mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
-    else:
-        mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
-    N.nvmlDeviceGetComputeRunningProcesses.side_effect = _raise_ex(lambda handle: {  # noqa: E501
-        mock_handles[0]: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],  # noqa: E501
-        mock_handles[1]: [mock_process_t(192453, 3000*MB), mock_process_t(194826, 6000*MB)],  # noqa: E501
-        # Not Supported or non-existent
-        mock_handles[2]: mock_processes_gpu2_erratic,
-    }.get(handle, RuntimeError))
-
-    N.nvmlDeviceGetGraphicsRunningProcesses.side_effect = _raise_ex(lambda handle: {  # noqa: E501
-        mock_handles[0]: [],
-        mock_handles[1]: [],
-        mock_handles[2]: N.NVMLError_NotSupported(),
-    }.get(handle, RuntimeError))
-
-    mock_pid_map = {   # mock information for psutil...
+    # for psutil
+    mock_pid_map = {   # mock/stub information for psutil...
         48448:  ('user1', 'python', 85.25, 3.1415),
         154213: ('user1', 'caffe', 16.89, 100.00),
         38310:  ('user3', 'python', 26.23, 99.9653),
@@ -155,22 +143,22 @@ def _configure_mock(N, Process, virtual_memory,
         194826: ('user3', 'caffe', 0.0, 12.5236),
         192453: ('user1', 'torch', 123.2, 0.7312),
     }
-
+    assert 99999 not in mock_pid_map, 'scenario_nonexistent_pid'
     def _MockedProcess(pid):
         if pid not in mock_pid_map:
             raise psutil.NoSuchProcess(pid=pid)
         username, cmdline, cpuutil, memutil = mock_pid_map[pid]
-        p = MagicMock()  # mocked process
-        p.username.return_value = username
-        p.cmdline.return_value = [cmdline]
-        p.cpu_percent.return_value = cpuutil
-        p.memory_percent.return_value = memutil
+        p = mock(strict=True)
+        p.username = lambda: username
+        p.cmdline = lambda: [cmdline]
+        p.cpu_percent = lambda: cpuutil
+        p.memory_percent = lambda: memutil
         return p
-    Process.side_effect = _MockedProcess
 
-    def _MockedMem():
-        return mock_memory_t(total=8589934592, used=0)
-    virtual_memory.side_effect = _MockedMem
+    when(psutil).Process(...)\
+        .thenAnswer(_MockedProcess)
+    when(psutil).virtual_memory()\
+        .thenReturn(mock_memory_t(total=8589934592, used=0))
 
 
 MOCK_EXPECTED_OUTPUT_DEFAULT = os.linesep.join("""\
@@ -196,38 +184,47 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
 """.splitlines())  # noqa: E501
 
 
-MB = 1024 * 1024
+# -----------------------------------------------------------------------------
+
+@pytest.fixture
+def scenario_basic():
+    _configure_mock()
+
+@pytest.fixture
+def scenario_nonexistent_pid():
+    _configure_mock(scenario_nonexistent_pid=True)
 
 
-def remove_ansi_codes(s):
-    import re
-    s = re.compile(r'\x1b[^m]*m').sub('', s)
-    s = re.compile(r'\x0f').sub('', s)
-    return s
+class TestGPUStat(object):
+    """A pytest class suite for gpustat."""
 
+    def setup_method(self):
+        print("")
+        self.maxDiff = 4096
 
-class TestGPUStat(unittest.TestCase):
+    def teardown_method(self):
+        unstub()
 
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_main(self, N, Process, virtual_memory):
-        """
-        Test whether gpustat.main() works well. The behavior is mocked
-        exactly as in test_new_query_mocked().
-        """
-        _configure_mock(N, Process, virtual_memory)
-        sys.argv = ['gpustat']
-        gpustat.main()
+    @staticmethod
+    def capture_output(*args):
+        f = StringIO()
+        import contextlib
 
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_new_query_mocked(self, N, Process, virtual_memory):
+        with contextlib.redirect_stdout(f):  # requires python 3.4+
+            try:
+                gpustat.main(*args)
+            except SystemExit as e:
+                if e.code != 0:
+                    raise AssertionError(
+                        "Argparse failed (see above error message)")
+        return f.getvalue()
+
+    # -----------------------------------------------------------------------
+
+    def test_new_query_mocked(self, scenario_basic):
         """
         A basic functionality test, in a case where everything is just normal.
         """
-        _configure_mock(N, Process, virtual_memory)
 
         gpustats = gpustat.new_query()
         fp = StringIO()
@@ -244,40 +241,38 @@ class TestGPUStat(unittest.TestCase):
         # remove first line (header)
         unescaped = os.linesep.join(unescaped.splitlines()[1:])
 
-        self.maxDiff = 4096
-        self.assertEqual(unescaped, MOCK_EXPECTED_OUTPUT_FULL_PROCESS)
+        assert unescaped == MOCK_EXPECTED_OUTPUT_FULL_PROCESS
 
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_new_query_mocked_nonexistent_pid(self, N, Process,
-                                              virtual_memory):
+    def test_new_query_mocked_nonexistent_pid(self, scenario_nonexistent_pid):
         """
         Test a case where nvidia query returns non-existent pids (see #16, #18)
+        for GPU index 2.
         """
-        _configure_mock(N, Process, virtual_memory,
-                        scenario_nonexistent_pid=True)
+        fp = StringIO()
 
         gpustats = gpustat.new_query()
-        gpustats.print_formatted(fp=sys.stdout)
+        gpustats.print_formatted(fp=fp)
 
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_attributes_and_items(self, N, Process, virtual_memory):
-        """
-        Test whether each property of `GPUStat` instance is well-defined.
-        """
-        _configure_mock(N, Process, virtual_memory)
+        ret = fp.getvalue()
+        print(ret)
+
+        # gpu 2: should ignore process id
+        line = remove_ansi_codes(ret).split('\n')[3]
+        assert '[2] GeForce GTX TITAN 2' in line, str(line)
+        assert '99999' not in line
+        assert '(Not Supported)' not in line
+
+    def test_attributes_and_items(self, scenario_basic):
+        """Test whether each property of `GPUStat` instance is well-defined."""
 
         g = gpustat.new_query()[1]  # includes N/A
         print("(keys) : %s" % str(g.keys()))
         print(g)
 
-        self.assertEqual(g['name'], g.entry['name'])
-        self.assertEqual(g['uuid'], g.uuid)
+        assert g['name'] == g.entry['name']
+        assert g['uuid'] == g.uuid
 
-        with self.assertRaises(KeyError):
+        with pytest.raises(KeyError):
             g['unknown_key']
 
         print("uuid : %s" % g.uuid)
@@ -289,28 +284,15 @@ class TestGPUStat(unittest.TestCase):
         print("utilization_enc : %s" % (g.utilization_enc))
         print("utilization_dec : %s" % (g.utilization_dec))
 
-    @staticmethod
-    def capture_output(*args):
-        f = StringIO()
-        import contextlib
+    def test_main(self, scenario_basic):
+        """Test whether gpustat.main() works well.
+        The behavior is mocked exactly as in test_new_query_mocked().
+        """
+        sys.argv = ['gpustat']
+        gpustat.main()
 
-        with contextlib.redirect_stdout(f):  # requires python 3.4+
-            try:
-                gpustat.main(*args)
-            except SystemExit as e:
-                if e.code != 0:
-                    raise AssertionError(
-                        "Argparse failed (see above error message)")
-        return f.getvalue()
-
-
-    @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_args_commandline(self, N, Process, virtual_memory):
+    def test_args_commandline(self, scenario_basic):
         """Tests the end gpustat CLI."""
-        _configure_mock(N, Process, virtual_memory)
         capture_output = self.capture_output
 
         def _remove_ansi_codes_and_header_line(s):
@@ -320,40 +302,30 @@ class TestGPUStat(unittest.TestCase):
             return unescaped
 
         s = capture_output('gpustat', )
-        self.maxDiff = 4096
-        self.assertEqual(_remove_ansi_codes_and_header_line(s),
-                         MOCK_EXPECTED_OUTPUT_DEFAULT)
+        assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_DEFAULT
 
         s = capture_output('gpustat', '--version')
         assert s.startswith('gpustat ')
         print(s)
 
         s = capture_output('gpustat', '--no-header')
-        self.assertIn("[0]", s.splitlines()[0])
+        assert "[0]" in s.splitlines()[0]
 
         s = capture_output('gpustat', '-a')  # --show-all
-        self.assertEqual(_remove_ansi_codes_and_header_line(s),
-                         MOCK_EXPECTED_OUTPUT_FULL)
+        assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_FULL
 
         s = capture_output('gpustat', '--color')
         assert '\x0f' not in s, "Extra \\x0f found (see issue #32)"
-        self.assertEqual(_remove_ansi_codes_and_header_line(s),
-                         MOCK_EXPECTED_OUTPUT_DEFAULT)
+        assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_DEFAULT
 
         s = capture_output('gpustat', '--no-color')
         unescaped = remove_ansi_codes(s)
-        self.assertEqual(s, unescaped)   # should have no ansi code
-        self.assertEqual(_remove_ansi_codes_and_header_line(s),
-                         MOCK_EXPECTED_OUTPUT_DEFAULT)
+        assert s == unescaped   # should have no ansi code
+        assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_DEFAULT
 
-    @unittest.skipIf(sys.version_info < (3, 4), "Only in Python 3.4+")
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_args_commandline_showoptions(self, N, Process, virtual_memory):
+    def test_args_commandline_showoptions(self, scenario_basic):
         """Tests gpustat CLI with a variety of --show-xxx options. """
 
-        _configure_mock(N, Process, virtual_memory)
         capture_output = self.capture_output
         print('')
 
@@ -376,15 +348,10 @@ class TestGPUStat(unittest.TestCase):
             print(s)
 
         # Finally, unknown args
-        with self.assertRaises(AssertionError):
+        with pytest.raises(AssertionError):
             capture_output('gpustat', '--unrecognized-args-in-test')
 
-
-    @mock.patch('psutil.virtual_memory')
-    @mock.patch('psutil.Process')
-    @mock.patch('gpustat.core.N')
-    def test_json_mocked(self, N, Process, virtual_memory):
-        _configure_mock(N, Process, virtual_memory)
+    def test_json_mocked(self, scenario_basic):
         gpustats = gpustat.new_query()
 
         fp = StringIO()
@@ -398,4 +365,4 @@ class TestGPUStat(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    pytest.main()
