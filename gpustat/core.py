@@ -330,12 +330,10 @@ class GPUStat(object):
         return fp
 
     def jsonify(self):
-        o = dict(self.entry)
+        o = self.entry.copy()
         if self.entry['processes'] is not None:
             o['processes'] = [{k: v for (k, v) in p.items() if k != 'gpu_uuid'}
                               for p in self.entry['processes']]
-        else:
-            o['processes'] = '({})'.format(NOT_SUPPORTED)
         return o
 
 
