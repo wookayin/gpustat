@@ -83,7 +83,7 @@ install_requires = [
 ]
 
 tests_requires = [
-    'pytest>=5.4.1',
+    'pytest>=5.4.1' if sys.version_info >= (3, 5) else 'pytest<5.0',
     'mockito>=1.2.1',
 ]
 
