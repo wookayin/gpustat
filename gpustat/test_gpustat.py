@@ -129,7 +129,7 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
 
         when(N).nvmlDeviceGetGraphicsRunningProcesses(handle)\
             .thenAnswer(_return_or_raise({
-                0: [],
+                0: [mock_process_t(48448, 4000*MB)],
                 1: [],
                 2: N.NVMLError_NotSupported(),
             }[i]))
