@@ -376,6 +376,8 @@ class GPUStatCollection(object):
                     GPUStatCollection.global_processes[nv_process.pid] = \
                         psutil.Process(pid=nv_process.pid)
                 ps_process = GPUStatCollection.global_processes[nv_process.pid]
+
+                # TODO: ps_process is being cached, but the dict below is not.
                 process['username'] = ps_process.username()
                 # cmdline returns full path;
                 # as in `ps -o comm`, get short cmdnames.
@@ -461,7 +463,13 @@ class GPUStatCollection(object):
                 processes = []
                 nv_comp_processes = nv_comp_processes or []
                 nv_graphics_processes = nv_graphics_processes or []
+                # A single process might run in both of graphics and compute mode,
+                # However we will display the process only once
+                seen_pids = set()
                 for nv_process in nv_comp_processes + nv_graphics_processes:
+                    if nv_process.pid in seen_pids:
+                        continue
+                    seen_pids.add(nv_process.pid)
                     try:
                         process = get_process_info(nv_process)
                         processes.append(process)
