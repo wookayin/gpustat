@@ -33,7 +33,9 @@ def remove_ansi_codes(s):
 # -----------------------------------------------------------------------------
 
 
-def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
+def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
+                    nosuchprocess_exception_type=psutil.NoSuchProcess,
+                    ):
     """Define mock behaviour for pynvml and psutil.{Process,virtual_memory}."""
 
     # without following patch, unhashable NVMLError makes unit test crash
@@ -117,7 +119,10 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
         mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
 
         if scenario_nonexistent_pid:
-            mock_processes_gpu2_erratic = [mock_process_t(99999, 9999*MB)]
+            mock_processes_gpu2_erratic = [
+                mock_process_t(99999, 9999*MB),
+                mock_process_t(99995, 9995*MB),   # see issue #95
+            ]
         else:
             mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
         when(N).nvmlDeviceGetComputeRunningProcesses(handle)\
@@ -144,9 +149,16 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False):
         192453: ('user1', 'torch', 123.2, 0.7312),
     }
     assert 99999 not in mock_pid_map, 'scenario_nonexistent_pid'
+    assert 99995 not in mock_pid_map, 'scenario_nonexistent_pid (#95)'
     def _MockedProcess(pid):
         if pid not in mock_pid_map:
-            raise psutil.NoSuchProcess(pid=pid)
+            if pid == 99995:
+                # simulate a bug reported in #95
+                raise FileNotFoundError("/proc/99995/stat")
+            else:
+                # for a process that does not exist, NoSuchProcess is the
+                # type of exceptions supposed to be raised by psutil
+                raise psutil.NoSuchProcess(pid=pid)
         username, cmdline, cpuutil, memutil = mock_pid_map[pid]
         p = mock(strict=True)
         p.username = lambda: username

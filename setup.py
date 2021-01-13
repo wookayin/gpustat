@@ -80,7 +80,7 @@ setup_requires = []
 install_requires = [
     'six>=1.7',
     'nvidia-ml-py3>=7.352.0',
-    'psutil',
+    'psutil>=5.6.0',    # GH-1447
     'blessed>=1.17.1',  # GH-126
 ]
 

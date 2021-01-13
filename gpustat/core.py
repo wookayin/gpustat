@@ -477,6 +477,14 @@ class GPUStatCollection(object):
                         # TODO: add some reminder for NVML broken context
                         # e.g. nvidia-smi reset  or  reboot the system
                         pass
+                    except FileNotFoundError:
+                        # Ignore the exception which probably has occured
+                        # from psutil, due to a non-existent PID (see #95).
+                        # The exception should have been translated, but
+                        # there appears to be a bug of psutil. It is unlikely
+                        # FileNotFoundError is thrown in different situations.
+                        pass
+
 
                 # TODO: Do not block if full process info is not requested
                 time.sleep(0.1)
