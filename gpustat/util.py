@@ -21,7 +21,7 @@ def bytes2human(in_bytes):
 
 def prettify_commandline(cmdline, color_command='', color_text=''):
     '''
-    Prettify and colorlize a full command-line (given as list of strings),
+    Prettify and colorize a full command-line (given as list of strings),
     where command (basename) is highlighted in a different color.
     '''
     # cmdline: Iterable[str]
