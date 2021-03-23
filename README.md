@@ -76,6 +76,17 @@ For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
 [gh-issue-54]: https://github.com/wookayin/gpustat/issues/54
 [gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
 
+Default display
+---------------
+
+> [0] GeForce GTX Titan X | 77'C,  96 % | 11848 / 12287 MB | python/52046(11821M)
+
+- `[0]`: GPUindex (starts from 0) as PCI_BUS_ID
+- `GeForce GTX Titan X`: GPU name
+- `77'C`: Temperature
+- `96 %`: Utilization
+- `11848 / 12287 MB`: GPU Memory Usage
+- `python/...`: Running processes on GPU (and their memory usage)
 
 Changelog
 ---------
