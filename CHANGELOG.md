@@ -12,6 +12,11 @@ Changelog for `gpustat`
 - [Enhancement] Use unicode symbols (#58, @arinbjornk)
 - [Enhancement] Add full process information (-f) (#65, @bethune-bryant)
 - [Enhancement] Add '--show-all (-a)' flag (#64)
+- [Bugfix] Fix color/highlight issues on power usage
+- [Bugfix] Make color/highlight work correctly when TERM is not set
+- [Bugfix] Do not list the same GPU process more than once (#84)
+- [Bugfix] Fix a bug where querying zombie process can throw errors (#95)
+- [Etc] Internal improvements on code style and tests
 
 
 ## [v0.6.0][milestone-0.6] (2019/07/22)
