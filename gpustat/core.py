@@ -23,9 +23,9 @@ from datetime import datetime
 
 from six.moves import cStringIO as StringIO
 import psutil
-import pynvml as N
 from blessed import Terminal
 
+from gpustat.nvml import pynvml as N
 import gpustat.util as util
 
 

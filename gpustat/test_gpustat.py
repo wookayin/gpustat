@@ -13,12 +13,11 @@ from collections import namedtuple
 from io import StringIO    # Python 3 only
 
 import psutil
-import pynvml
-
 import pytest
 from mockito import when, mock, unstub
 
 import gpustat
+from gpustat.nvml import pynvml
 
 
 MB = 1024 * 1024
