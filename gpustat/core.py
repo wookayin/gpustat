@@ -356,10 +356,11 @@ class GPUStatCollection(object):
                 del GPUStatCollection.global_processes[pid]
 
     @staticmethod
-    def new_query():
+    def new_query(debug=False):
         """Query the information of all the GPUs on local machine"""
 
         N.nvmlInit()
+        log = util.DebugHelper()
 
         def _decode(b):
             if isinstance(b, bytes):
@@ -408,53 +409,63 @@ class GPUStatCollection(object):
                 temperature = N.nvmlDeviceGetTemperature(
                     handle, N.NVML_TEMPERATURE_GPU
                 )
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("temperature", e)
                 temperature = None  # Not supported
 
             try:
                 fan_speed = N.nvmlDeviceGetFanSpeed(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("fan_speed", e)
                 fan_speed = None  # Not supported
 
             try:
                 memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("memory", e)
                 memory = None  # Not supported
 
             try:
                 utilization = N.nvmlDeviceGetUtilizationRates(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("utilization", e)
                 utilization = None  # Not supported
 
             try:
                 utilization_enc = N.nvmlDeviceGetEncoderUtilization(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("utilization_enc", e)
                 utilization_enc = None  # Not supported
 
             try:
                 utilization_dec = N.nvmlDeviceGetDecoderUtilization(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("utilization_dnc", e)
                 utilization_dec = None  # Not supported
 
             try:
                 power = N.nvmlDeviceGetPowerUsage(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("power", e)
                 power = None
 
             try:
                 power_limit = N.nvmlDeviceGetEnforcedPowerLimit(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("power_limit", e)
                 power_limit = None
 
             try:
                 nv_comp_processes = \
                     N.nvmlDeviceGetComputeRunningProcesses(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("compute_processes", e)
                 nv_comp_processes = None  # Not supported
             try:
                 nv_graphics_processes = \
                     N.nvmlDeviceGetGraphicsRunningProcesses(handle)
-            except N.NVMLError:
+            except N.NVMLError as e:
+                log.add_exception("graphics_processes", e)
                 nv_graphics_processes = None  # Not supported
 
             if nv_comp_processes is None and nv_graphics_processes is None:
@@ -529,8 +540,12 @@ class GPUStatCollection(object):
         # 2. additional info (driver version, etc).
         try:
             driver_version = _decode(N.nvmlSystemGetDriverVersion())
-        except N.NVMLError:
+        except N.NVMLError as e:
+            log.add_exception("driver_version", e)
             driver_version = None    # N/A
+
+        if debug:
+            log.report_summary()
 
         N.nvmlShutdown()
         return GPUStatCollection(gpu_list, driver_version=driver_version)

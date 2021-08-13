@@ -17,7 +17,7 @@ def print_gpustat(json=False, debug=False, **kwargs):
     Display the GPU query results into standard output.
     '''
     try:
-        gpu_stats = GPUStatCollection.new_query()
+        gpu_stats = GPUStatCollection.new_query(debug=debug)
     except Exception as e:
         sys.stderr.write('Error on querying NVIDIA devices.'
                          ' Use --debug flag for details\n')
