@@ -75,8 +75,6 @@ class DeployCommand(Command):
         sys.exit()
 
 
-setup_requires = []
-
 install_requires = [
     'six>=1.7',
     'nvidia-ml-py3>=7.352.0',
@@ -89,10 +87,8 @@ tests_requires = [
 ]
 if sys.version_info >= (3, 5):
     tests_requires += ['pytest>=5.4.1']
-    setup_requires += ['pytest-runner>=5.0'],
 else:
-    tests_requires += ['pytest<5.0', 'more_itertools<8.0']
-    setup_requires += ['pytest-runner<5.0'],
+    tests_requires += ['pytest<5.0', 'more_itertools<8.0', 'attrs<19.2.0']
 
 setup(
     name='gpustat',
@@ -116,7 +112,6 @@ setup(
     packages=['gpustat'],
     install_requires=install_requires,
     extras_require={'test': tests_requires},
-    setup_requires=setup_requires,
     tests_require=tests_requires,
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],

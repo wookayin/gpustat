@@ -1,0 +1,56 @@
+name: "Run Tests"
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  unit-tests:
+    name: "Unit Tests"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-18.04
+            python-version: "3.4"
+          - os: ubuntu-latest
+            python-version: "3.5"
+          - os: ubuntu-latest
+            python-version: "3.6"
+          - os: ubuntu-latest
+            python-version: "3.7"
+          - os: ubuntu-latest
+            python-version: "3.8"
+          - os: ubuntu-latest
+            python-version: "3.9"
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: windows-latest
+            python-version: "3.8"
+          - os: windows-latest
+            python-version: "3.9"
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: |
+          python -m pip install -U pip
+
+      - name: Configure environments
+        run: |
+          python --version
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[test]"
+
+      - name: Run tests
+        run: |
+          pytest --color=yes -v -s
+        env:
+          PYTHONIOENCODING: UTF-8
