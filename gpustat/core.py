@@ -363,33 +363,26 @@ class GPUStatCollection(object):
         log = util.DebugHelper()
 
         def _decode(b):
-            if isinstance(b, bytes):
-                return b.decode('utf-8')    # for python3, to unicode
-            return b
+            return b.decode('utf-8') if isinstance(b, bytes) else b
 
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
 
             def get_process_info(nv_process):
                 """Get the process information of specific pid"""
-                process = {}
                 if nv_process.pid not in GPUStatCollection.global_processes:
                     GPUStatCollection.global_processes[nv_process.pid] = \
                         psutil.Process(pid=nv_process.pid)
                 ps_process = GPUStatCollection.global_processes[nv_process.pid]
 
-                # TODO: ps_process is being cached, but the dict below is not.
-                process['username'] = ps_process.username()
-                # cmdline returns full path;
-                # as in `ps -o comm`, get short cmdnames.
-                _cmdline = ps_process.cmdline()
-                if not _cmdline:
+                process = {'username': ps_process.username()}
+                if _cmdline := ps_process.cmdline():
+                    process['command'] = os.path.basename(_cmdline[0])
+                    process['full_command'] = _cmdline
+                else:
                     # sometimes, zombie or unknown (e.g. [kworker/8:2H])
                     process['command'] = '?'
                     process['full_command'] = ['?']
-                else:
-                    process['command'] = os.path.basename(_cmdline[0])
-                    process['full_command'] = _cmdline
                 # Bytes to MBytes
                 # if drivers are not TTC this will be None.
                 usedmem = nv_process.usedGpuMemory // MB if \
@@ -603,8 +596,10 @@ class GPUStatCollection(object):
             else:
                 time_format = locale.nl_langinfo(locale.D_T_FMT)
                 timestr = self.query_time.strftime(time_format)
-            header_template = '{t.bold_white}{hostname:{width}}{t.normal}  '
-            header_template += '{timestr}  '
+            header_template = (
+                '{t.bold_white}{hostname:{width}}{t.normal}  ' + '{timestr}  '
+            )
+
             header_template += '{t.bold_black}{driver_version}{t.normal}'
 
             header_msg = header_template.format(
