@@ -14,7 +14,7 @@ def bytes2human(in_bytes):
     suffix = 0
     result = int(in_bytes)
     while result > 9999 and suffix < len(suffixes):
-        result = result >> 10
+        result >>= 10
         suffix += 1
 
     if suffix >= len(suffixes):

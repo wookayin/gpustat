@@ -48,8 +48,7 @@ class DeployCommand(Command):
             "__version__ == {}".format(__version__))
 
         with os.popen("git status --short") as fp:
-            git_status = fp.read().strip()
-            if git_status:
+            if git_status := fp.read().strip():
                 print("Error: git repository is not clean.\n")
                 os.system("git status --short")
                 sys.exit(1)
