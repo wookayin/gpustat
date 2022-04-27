@@ -367,8 +367,8 @@ class GPUStatCollection(object):
                 return b.decode('utf-8')    # for python3, to unicode
             return b
 
-        def get_gpu_info(handle):
-            """Get one GPU information specified by nvml handle"""
+        def get_gpu_info(handle, mig_handle=None):
+            """Get one GPU information specified by nvml handle"""         
 
             def get_process_info(nv_process):
                 """Get the process information of specific pid"""
@@ -401,9 +401,9 @@ class GPUStatCollection(object):
                           psutil.virtual_memory().total)
                 process['pid'] = nv_process.pid
                 return process
-
-            name = _decode(N.nvmlDeviceGetName(handle))
-            uuid = _decode(N.nvmlDeviceGetUUID(handle))
+                        
+            name = _decode(N.nvmlDeviceGetName(mig_handle if mig_handle else handle))
+            uuid = _decode(N.nvmlDeviceGetUUID(mig_handle if mig_handle else handle))
 
             try:
                 temperature = N.nvmlDeviceGetTemperature(
@@ -420,7 +420,7 @@ class GPUStatCollection(object):
                 fan_speed = None  # Not supported
 
             try:
-                memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
+                memory = N.nvmlDeviceGetMemoryInfo(mig_handle if mig_handle else handle)  # in Bytes
             except N.NVMLError as e:
                 log.add_exception("memory", e)
                 memory = None  # Not supported
@@ -457,13 +457,13 @@ class GPUStatCollection(object):
 
             try:
                 nv_comp_processes = \
-                    N.nvmlDeviceGetComputeRunningProcesses(handle)
+                    N.nvmlDeviceGetComputeRunningProcesses(mig_handle if mig_handle else handle)
             except N.NVMLError as e:
                 log.add_exception("compute_processes", e)
                 nv_comp_processes = None  # Not supported
             try:
                 nv_graphics_processes = \
-                    N.nvmlDeviceGetGraphicsRunningProcesses(handle)
+                    N.nvmlDeviceGetGraphicsRunningProcesses(mig_handle if mig_handle else handle)
             except N.NVMLError as e:
                 log.add_exception("graphics_processes", e)
                 nv_graphics_processes = None  # Not supported
@@ -504,7 +504,10 @@ class GPUStatCollection(object):
                     cache_process = GPUStatCollection.global_processes[pid]
                     process['cpu_percent'] = cache_process.cpu_percent()
 
-            index = N.nvmlDeviceGetIndex(handle)
+            index = str(N.nvmlDeviceGetIndex(handle))
+            if mig_handle:
+                index += ':' + str(N.nvmlDeviceGetIndex(mig_handle))
+            
             gpu_info = {
                 'index': index,
                 'uuid': uuid,
@@ -532,10 +535,21 @@ class GPUStatCollection(object):
         device_count = N.nvmlDeviceGetCount()
 
         for index in range(device_count):
-            handle = N.nvmlDeviceGetHandleByIndex(index)
-            gpu_info = get_gpu_info(handle)
-            gpu_stat = GPUStat(gpu_info)
-            gpu_list.append(gpu_stat)
+            device_handle = N.nvmlDeviceGetHandleByIndex(index)
+            is_mig = N.nvmlDeviceGetMigMode(device_handle)[0] == 1
+            if is_mig:
+                for i in range(N.nvmlDeviceGetMaxMigDeviceCount(device_handle)):
+                    try:
+                        mig_handle = N.nvmlDeviceGetMigDeviceHandleByIndex(device_handle, i)
+                        gpu_info = get_gpu_info(device_handle, mig_handle=mig_handle)
+                        gpu_stat = GPUStat(gpu_info)
+                        gpu_list.append(gpu_stat)
+                    except:
+                        pass
+            else:
+                gpu_info = get_gpu_info(device_handle)
+                gpu_stat = GPUStat(gpu_info)
+                gpu_list.append(gpu_stat)
 
         # 2. additional info (driver version, etc).
         try:
