@@ -77,7 +77,7 @@ class DeployCommand(Command):
 
 install_requires = [
     'six>=1.7',
-    'nvidia-ml-py!=375.*',  # see https://forums.developer.nvidia.com/t/mistake-with-nvidia-ml-py-on-pypi/112942
+    'nvidia-ml-py>=11.450.129,<=11.495.46',  # see #107
     'psutil>=5.6.0',    # GH-1447
     'blessed>=1.17.1',  # GH-126
 ]
