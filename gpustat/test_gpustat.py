@@ -165,6 +165,7 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
         p.cmdline = lambda: [cmdline]
         p.cpu_percent = lambda: cpuutil
         p.memory_percent = lambda: memutil
+        p.pid = pid
         return p
 
     when(psutil).Process(...)\

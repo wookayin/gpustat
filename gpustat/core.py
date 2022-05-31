@@ -488,6 +488,8 @@ class GPUStatCollection(object):
                         # TODO: add some reminder for NVML broken context
                         # e.g. nvidia-smi reset  or  reboot the system
                         pass
+                    except psutil.AccessDenied:
+                        pass
                     except FileNotFoundError:
                         # Ignore the exception which probably has occured
                         # from psutil, due to a non-existent PID (see #95).
