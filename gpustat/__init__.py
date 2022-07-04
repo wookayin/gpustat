@@ -2,7 +2,7 @@
 The gpustat module.
 """
 
-__version__ = '1.0.0.dev1'
+__version__ = '1.0.0.dev2'
 
 from .core import GPUStat, GPUStatCollection
 from .core import new_query
