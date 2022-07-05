@@ -7,7 +7,7 @@
 
 Just *less* than nvidia-smi?
 
-![Screenshot: gpustat -cp](screenshot.png)
+![Screenshot: gpustat -cp](https://github.com/wookayin/gpustat/blob/master/screenshot.png)
 
 NOTE: This works with NVIDIA Graphics Devices only, no AMD support as of now. Contributions are welcome!
 
@@ -16,12 +16,39 @@ Self-Promotion: A web interface of `gpustat` is available (in alpha)! Check out 
 [gpustat-web]: https://github.com/wookayin/gpustat-web
 
 
+
+Quick Installation
+------------------
+
+Install from [PyPI][pypi_gpustat]:
+
+```
+pip install gpustat
+```
+
+If you don't have root privilege, please try installing `gpustat` on user namespace: `pip install --user gpustat`.
+
+To install the latest version (master branch) via pip:
+
+```
+pip install git+https://github.com/wookayin/gpustat.git@master
+```
+
+Please note that starting from v1.0, gpustat will support [only Python 3.4+][gh-issue-66].
+For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
+
+
+### NVIDIA Driver Requirements
+
+`gpustat` uses [NVIDIA's official python bindings for NVML library (pynvml)][pypi_pynvml]. As of now `gpustat` requires `nvidia-ml-py >= 11.450.129, <=11.495.46`, which is compatible with NVIDIA driver versions R450.00 or higher. Please upgrade the NVIDIA driver if `gpustat` process information. If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
+
+
 Usage
 -----
 
 `$ gpustat`
 
-Options:
+Options (Please see `gpustat --help` for more details):
 
 * `--color`            : Force colored output (even when stdout is not a tty)
 * `--no-color`         : Suppress colored output
@@ -36,8 +63,10 @@ Options:
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
 * `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
 
+
 ### Tips
 
+- Try `gpustat --debug` if something goes wrong.
 - To periodically watch, try `gpustat --watch` or `gpustat -i` ([#41][gh-issue-41]).
     - For older versions, one may use `watch --color -n1.0 gpustat --color`.
 - Running `nvidia-smi daemon` (root privilege required) will make the query much **faster** and use less CPU ([#54][gh-issue-54]).
@@ -49,32 +78,13 @@ Options:
   `export CUDA_DEVICE_ORDER=PCI_BUS_ID`.
 
 
-Quick Installation
-------------------
-
-Install from [PyPI][pypi_gpustat]:
-
-```
-pip install gpustat
-```
-
-If you don't have root privilege, please try to install on user namespace: `pip install --user gpustat`.
-
-To install the latest version (master branch) via pip:
-
-```
-pip install git+https://github.com/wookayin/gpustat.git@master
-```
-
-Note that starting from v1.0, gpustat will support [only Python 3.4+][gh-issue-66].
-For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
-
-
-[pypi_gpustat]: https://pypi.python.org/pypi/gpustat
+[pypi_gpustat]: https://pypi.org/project/gpustat/
+[pypi_pynvml]: https://pypi.org/project/nvidia-ml-py/#history
 [gh-issue-10]: https://github.com/wookayin/gpustat/issues/10
 [gh-issue-41]: https://github.com/wookayin/gpustat/issues/41
 [gh-issue-54]: https://github.com/wookayin/gpustat/issues/54
 [gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
+[gh-issue-107]: https://github.com/wookayin/gpustat/issues/107
 
 Default display
 ---------------

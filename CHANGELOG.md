@@ -7,6 +7,9 @@ Changelog for `gpustat`
 
 - [Breaking changes] Retire Python 2 (#66). Add CI tests for python 3.8.
 - [Breaking changes] Backward-incompatible changes on JSON fields (#10)
+- [Breaking changes] Use official nvidia python bindings (#107).
+    - Due to API incompatibility issues, the nvidia driver version should be **R450** or higher
+      in order for process information to be correctly displayed.
 - [New Feature] Add '--show-codec (-e)' option: display encoder/decoder utilization (#79)
 - [Enhancement] Re-add windows support, by switching to `blessed` (#78, @skjerns)
 - [Enhancement] Use unicode symbols (#58, @arinbjornk)
@@ -17,7 +20,9 @@ Changelog for `gpustat`
 - [Bugfix] Make color/highlight work correctly when TERM is not set
 - [Bugfix] Do not list the same GPU process more than once (#84)
 - [Bugfix] Fix a bug where querying zombie process can throw errors (#95)
+- [Bugfix] Fix a bug where psutil may fail to get process info on Windows (#121, #123, @mattip)
 - [Etc] Internal improvements on code style and tests
+- [Etc] CI: Use Github Actions
 
 
 ## [v0.6.0][milestone-0.6] (2019/07/22)
