@@ -3,6 +3,8 @@
 import textwrap
 
 
+pynvml = None
+
 try:
     # Check pynvml version: we require 11.450.129 or newer.
     # https://github.com/wookayin/gpustat/pull/107
@@ -20,14 +22,15 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         pynvml is missing or an outdated version is installed.
 
         We require nvidia-ml-py>=11.450.129; see GH-107 for more details.
+        Your pynvml installation: """ + repr(pynvml) +
+        """
 
         -----------------------------------------------------------
         Please reinstall `gpustat`:
 
         $ pip install --force-reinstall gpustat
 
-        if it still does not fix the problem, manually fix nvidia-ml-py
-        installation:
+        if it still does not fix the problem, manually fix nvidia-ml-py installation:
 
         $ pip uninstall nvidia-ml-py3
         $ pip install --force-reinstall 'nvidia-ml-py<=11.495.46'
