@@ -26,7 +26,7 @@ Install from [PyPI][pypi_gpustat]:
 pip install gpustat
 ```
 
-If you don't have root privilege, please try installing `gpustat` on user namespace: `pip install --user gpustat`.
+If you don't have root (sudo) privilege, please try installing `gpustat` on user namespace: `pip install --user gpustat`.
 
 To install the latest version (master branch) via pip:
 
@@ -40,7 +40,7 @@ For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
 
 ### NVIDIA Driver Requirements
 
-`gpustat` uses [NVIDIA's official python bindings for NVML library (pynvml)][pypi_pynvml]. As of now `gpustat` requires `nvidia-ml-py >= 11.450.129, <=11.495.46`, which is compatible with NVIDIA driver versions R450.00 or higher. Please upgrade the NVIDIA driver if `gpustat` process information. If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
+`gpustat` uses [NVIDIA's official python bindings for NVML library (pynvml)][pypi_pynvml]. As of now `gpustat` requires `nvidia-ml-py >= 11.450.129, <=11.495.46`, which is compatible with NVIDIA driver versions R450.00 or higher. Please upgrade the NVIDIA driver if `gpustat` fails to display process information. If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
 
 
 Usage
@@ -69,10 +69,10 @@ Options (Please see `gpustat --help` for more details):
 - Try `gpustat --debug` if something goes wrong.
 - To periodically watch, try `gpustat --watch` or `gpustat -i` ([#41][gh-issue-41]).
     - For older versions, one may use `watch --color -n1.0 gpustat --color`.
-- Running `nvidia-smi daemon` (root privilege required) will make the query much **faster** and use less CPU ([#54][gh-issue-54]).
+- Running `nvidia-smi daemon` (root privilege required) will make querying GPUs much **faster** and use less CPU ([#54][gh-issue-54]).
 - The GPU ID (index) shown by `gpustat` (and `nvidia-smi`) is PCI BUS ID,
-  while CUDA differently assigns the fastest GPU with the lowest ID by default.
-  Therefore, in order to make CUDA and `gpustat` use **same GPU index**,
+  while CUDA uses a different ordering (assigns the fastest GPU with the lowest ID) by default.
+  Therefore, in order to ensure CUDA and `gpustat` use **same GPU index**,
   configure the `CUDA_DEVICE_ORDER` environment variable to `PCI_BUS_ID`
   (before setting `CUDA_VISIBLE_DEVICES` for your CUDA program):
   `export CUDA_DEVICE_ORDER=PCI_BUS_ID`.
@@ -89,14 +89,16 @@ Options (Please see `gpustat --help` for more details):
 Default display
 ---------------
 
-> [0] GeForce GTX Titan X | 77'C,  96 % | 11848 / 12287 MB | python/52046(11821M)
+```
+[0] GeForce GTX Titan X | 77°C,  96 % | 11848 / 12287 MB | python/52046(11821M)
+```
 
-- `[0]`: GPUindex (starts from 0) as PCI_BUS_ID
+- `[0]`: GPU index (starts from 0) as PCI_BUS_ID
 - `GeForce GTX Titan X`: GPU name
-- `77'C`: Temperature
-- `96 %`: Utilization
-- `11848 / 12287 MB`: GPU Memory Usage
-- `python/...`: Running processes on GPU (and their memory usage)
+- `77°C`: GPU Temperature (in Celsius)
+- `96 %`: GPU Utilization
+- `11848 / 12287 MB`: GPU Memory Usage (Used / Total)
+- `python/...`: Running processes on GPU, owner/cmdline/PID (and their GPU memory usage)
 
 Changelog
 ---------
