@@ -9,6 +9,7 @@ import time
 from blessed import Terminal
 
 from gpustat import __version__
+from gpustat.custom_color_action import CustomColorAction
 from .core import GPUStatCollection
 
 
@@ -78,6 +79,8 @@ def main(*argv):
                               help='Force to output with colors')
     parser_color.add_argument('--no-color', action='store_true',
                               help='Suppress colored output')
+    parser_color.add_argument('--custom-colors', action=CustomColorAction,
+                              help='Specify output colors')
     parser.add_argument('-a', '--show-all', action='store_true',
                         help='Display all gpu properties above')
 
