@@ -36,6 +36,7 @@ IS_WINDOWS = 'windows' in platform.platform().lower()
 
 
 class GPUStat(object):
+    CUSTOM_COLORS = {}
 
     def __init__(self, entry):
         if not isinstance(entry, dict):
@@ -186,12 +187,16 @@ class GPUStat(object):
                  show_power=None,
                  gpuname_width=16,
                  term=None,
+                 custom_colors=None,
                  ):
         if term is None:
             term = Terminal(stream=sys.stdout)
 
         # color settings
         colors = {}
+
+        if custom_colors is None:
+            custom_colors = {}
 
         def _conditional(cond_fn, true_value, false_value,
                          error_value=term.bold_black):
@@ -202,19 +207,30 @@ class GPUStat(object):
 
         _ENC_THRESHOLD = 50
 
-        colors['C0'] = term.normal
-        colors['C1'] = term.cyan
-        colors['CBold'] = term.bold
-        colors['CName'] = term.blue
+        def _set_color(name: str, default_color: str):
+            color = custom_colors.get(name, '')
+            if name in GPUStat.CUSTOM_COLORS:
+                return GPUStat.CUSTOM_COLORS[name]
+            elif color and getattr(term, color):
+                GPUStat.CUSTOM_COLORS[name] = getattr(term, color)
+                return GPUStat.CUSTOM_COLORS[name]
+            else:
+                GPUStat.CUSTOM_COLORS[name] = getattr(term, default_color)
+                return GPUStat.CUSTOM_COLORS[name]
+
+        colors['C0'] = _set_color('C0', 'normal')
+        colors['C1'] = _set_color('C1', 'cyan')
+        colors['CBold'] = _set_color('CBold', 'bold')
+        colors['CName'] = _set_color('CName', 'blue')
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
         colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30,
                                         term.cyan, term.bold_cyan)
-        colors['CMemU'] = term.bold_yellow
-        colors['CMemT'] = term.yellow
-        colors['CMemP'] = term.yellow
-        colors['CCPUMemU'] = term.yellow
-        colors['CUser'] = term.bold_black   # gray
+        colors['CMemU'] = _set_color('CMemU', 'bold_yellow')
+        colors['CMemT'] = _set_color('CMemT', 'yellow')
+        colors['CMemP'] = _set_color('CMemP', 'yellow')
+        colors['CCPUMemU'] = _set_color('CCPUMemU', 'yellow')
+        colors['CUser'] = _set_color('CUser', 'bold_black')
         colors['CUtil'] = _conditional(lambda: self.utilization < 30,
                                        term.green, term.bold_green)
         colors['CUtilEnc'] = _conditional(
@@ -223,13 +239,13 @@ class GPUStat(object):
         colors['CUtilDec'] = _conditional(
             lambda: self.utilization_dec < _ENC_THRESHOLD,
             term.green, term.bold_green)
-        colors['CCPUUtil'] = term.green
+        colors['CCPUUtil'] = _set_color('CCPUUtil', 'green')
         colors['CPowU'] = _conditional(
             lambda: (self.power_limit is not None and
                      float(self.power_draw) / self.power_limit < 0.4),
             term.magenta, term.bold_magenta
         )
-        colors['CPowL'] = term.magenta
+        colors['CPowL'] = _set_color('CPowL', 'magenta')
         colors['CCmd'] = term.color(24)   # a bit dark
 
         if not with_colors:
@@ -574,7 +590,7 @@ class GPUStatCollection(object):
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,
                         gpuname_width=16, show_header=True,
-                        eol_char=os.linesep,
+                        eol_char=os.linesep, custom_colors=None
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -631,7 +647,8 @@ class GPUStatCollection(object):
                        show_codec=show_codec,
                        show_power=show_power,
                        gpuname_width=gpuname_width,
-                       term=t_color)
+                       term=t_color,
+                       custom_colors=custom_colors)
             fp.write(eol_char)
 
         fp.flush()
