@@ -96,12 +96,12 @@ def main(*argv):
     parser.add_argument(
         '-e', '--show-codec', nargs='?', const='enc,dec', default='',
         choices=['', 'enc', 'dec', 'enc,dec'],
-        help='Show encoder/decoder utilization'
+        help='Show encoder and/or decoder utilization'
     )
     parser.add_argument(
-        '-P', '--show-power', nargs='?', const='draw,limit',
-        choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
-        help='Show GPU power usage or draw (and/or limit)'
+        '-P', '--show-power', nargs='?', const='draw,limit', default='',
+        choices=['', 'draw', 'limit', 'draw,limit'],
+        help='Show GPU power usage or draw (and limit)'
     )
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')

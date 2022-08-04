@@ -100,6 +100,12 @@ Default display
 - `11848 / 12287 MB`: GPU Memory Usage (Used / Total)
 - `python/...`: Running processes on GPU, owner/cmdline/PID (and their GPU memory usage)
 
+Tests
+-----
+
+To run the test suite, execute `PYTEST_ADDOPTS="-s" python setup.py test`
+
+
 Changelog
 ---------
 
