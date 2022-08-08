@@ -41,6 +41,25 @@ def prettify_commandline(cmdline, color_command='', color_text=''):
     return s
 
 
+def shorten_left(text, width, placeholder="…"):
+    # text: str
+    if width is None:
+        return text
+    if text is None or len(text) <= width:
+        return text
+    if width < 0:
+        raise ValueError("width must be non-negative.")
+    if width == 0:
+        return ""
+
+    if width == len(placeholder):
+        return placeholder
+    elif width - len(placeholder) < 0:
+        return placeholder[:width]
+        # raise ValueError("width is smaller than the length of placeholder.")
+    return placeholder + text[-(width - len(placeholder)):]
+
+
 class DebugHelper:
 
     def __init__(self):

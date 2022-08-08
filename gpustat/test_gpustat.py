@@ -335,6 +335,42 @@ class TestGPUStat(object):
         assert s == unescaped   # should have no ansi code
         assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_DEFAULT
 
+    def test_args_commandline_width(self, scenario_basic):
+        capture_output = self.capture_output
+
+        # see MOCK_EXPECTED_OUTPUT_DEFAULT
+        assert len("GeForce GTX TITAN 0") == 19
+
+        s = capture_output('gpustat', '--gpuname-width', '25')
+        print("- Should have width=25")
+        print(s)
+        assert 'GeForce GTX TITAN 0       |' in remove_ansi_codes(s)
+        #                         ^012345
+        #                        19
+
+        # See #47 (since v1.0)
+        print("- Should have width=10 (with truncation)")
+        s = capture_output('gpustat', '--gpuname-width', '10')
+        print(s)
+        assert '…X TITAN 0 |' in remove_ansi_codes(s)
+        #       1234567890
+
+        print("- Should have width=1 (too short)")
+        s = capture_output('gpustat', '--gpuname-width', '1')
+        print(s)
+        assert '… |' in remove_ansi_codes(s)
+
+        print("- Should have width=0: no name displayed.")
+        s = capture_output('gpustat', '--gpuname-width', '0')
+        print(s)
+        assert '[0]  80°C' in remove_ansi_codes(s)
+
+        print("- Invalid inputs")
+        with pytest.raises(AssertionError, match="Argparse failed"):
+            s = capture_output('gpustat', '--gpuname-width', '-1')
+        with pytest.raises(AssertionError, match="Argparse failed"):
+            s = capture_output('gpustat', '--gpuname-width', 'None')
+
     def test_args_commandline_showoptions(self, scenario_basic):
         """Tests gpustat CLI with a variety of --show-xxx options. """
 

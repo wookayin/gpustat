@@ -14,6 +14,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import json
+import textwrap
 import locale
 import os.path
 import platform
@@ -31,6 +32,8 @@ import gpustat.util as util
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
+
+DEFAULT_GPUNAME_WIDTH = 16
 
 IS_WINDOWS = 'windows' in platform.platform().lower()
 
@@ -184,7 +187,7 @@ class GPUStat(object):
                  show_fan_speed=None,
                  show_codec="",
                  show_power=None,
-                 gpuname_width=16,
+                 gpuname_width=None,
                  term=None,
                  ):
         if term is None:
@@ -242,14 +245,16 @@ class GPUStat(object):
         # build one-line display information
         # we want power use optional, but if deserves being grouped with
         # temperature and utilization
-        reps = u"%(C1)s[{entry[index]}]%(C0)s " \
-            "%(CName)s{entry[name]:{gpuname_width}}%(C0)s |" \
-            "%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
+        reps = u"%(C1)s[{entry[index]}]%(C0)s "
+        if gpuname_width is None or gpuname_width != 0:
+            reps += u"%(CName)s{entry_name:{gpuname_width}}%(C0)s |"
+        reps += u"%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
 
         if show_fan_speed:
             reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
 
         reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
+
         if show_codec:
             codec_info = []
             if "enc" in show_codec:
@@ -273,8 +278,12 @@ class GPUStat(object):
         reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s " \
             "/ %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
         reps = (reps) % colors
-        reps = reps.format(entry={k: _repr(v) for k, v in self.entry.items()},
-                           gpuname_width=gpuname_width)
+        reps = reps.format(
+            entry={k: _repr(v) for k, v in self.entry.items()},
+            entry_name=util.shorten_left(
+                self.entry["name"], width=gpuname_width, placeholder='…'),
+            gpuname_width=gpuname_width or DEFAULT_GPUNAME_WIDTH
+        )
         reps += " |"
 
         def process_repr(p):
@@ -573,7 +582,7 @@ class GPUStatCollection(object):
                         show_cmd=False, show_full_cmd=False, show_user=False,
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,
-                        gpuname_width=16, show_header=True,
+                        gpuname_width=None, show_header=True,
                         eol_char=os.linesep,
                         ):
         # ANSI color configuration
@@ -592,10 +601,6 @@ class GPUStatCollection(object):
         else:
             t_color = Terminal()   # auto, depending on isatty
 
-        # appearance settings
-        entry_name_width = [len(g.entry['name']) for g in self]
-        gpuname_width = max([gpuname_width or 0] + entry_name_width)
-
         # header
         if show_header:
             if IS_WINDOWS:
@@ -611,7 +616,7 @@ class GPUStatCollection(object):
 
             header_msg = header_template.format(
                     hostname=self.hostname,
-                    width=gpuname_width + 3,  # len("[?]")
+                    width=(gpuname_width or DEFAULT_GPUNAME_WIDTH) + 3,  # len("[?]")
                     timestr=timestr,
                     driver_version=self.driver_version,
                     t=t_color,

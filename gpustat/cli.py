@@ -73,6 +73,13 @@ def main(*argv):
     import argparse
     parser = argparse.ArgumentParser()
 
+    def nonnegative_int(value):
+        value = int(value)
+        if value < 0:
+            raise argparse.ArgumentTypeError(
+                "Only non-negative integers are allowed.")
+        return value
+
     parser_color = parser.add_mutually_exclusive_group()
     parser_color.add_argument('--force-color', '--color', action='store_true',
                               help='Force to output with colors')
@@ -114,7 +121,7 @@ def main(*argv):
         help='Suppress header message'
     )
     parser.add_argument(
-        '--gpuname-width', type=int, default=16,
+        '--gpuname-width', type=nonnegative_int, default=None,
         help='The minimum column width of GPU names, defaults to 16'
     )
     parser.add_argument(
