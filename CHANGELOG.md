@@ -5,11 +5,12 @@ Changelog for `gpustat`
 
 [milestone-1.0]: https://github.com/wookayin/gpustat/issues?q=milestone%3A1.0
 
-- [Breaking changes] Retire Python 2 (#66). Add CI tests for python 3.8.
-- [Breaking changes] Backward-incompatible changes on JSON fields (#10)
-- [Breaking changes] Use official nvidia python bindings (#107).
+- [Breaking change] Retire Python 2 (#66). Add CI tests for python 3.8 and higher.
+- [Breaking change] Backward-incompatible changes on JSON fields (#10)
+- [Breaking change] Use official nvidia python bindings (#107).
     - Due to API incompatibility issues, the nvidia driver version should be **R450** or higher
       in order for process information to be correctly displayed.
+- [Breaking change] Use of '--gpuname-width' will truncate longer GPU names (#47).
 - [New Feature] Add '--show-codec (-e)' option: display encoder/decoder utilization (#79)
 - [Enhancement] Re-add windows support, by switching to `blessed` (#78, @skjerns)
 - [Enhancement] Use unicode symbols (#58, @arinbjornk)

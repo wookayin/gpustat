@@ -30,7 +30,9 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         """\
         pynvml is missing or an outdated version is installed.
 
-        We require nvidia-ml-py>=11.450.129; see GH-107 for more details.
+        We require nvidia-ml-py>=11.450.129, and nvidia-ml-py3 shall not be used.
+        For more details, please refer to: https://github.com/wookayin/gpustat/issues/107
+
         Your pynvml installation: """ + repr(pynvml) +
         """
 
