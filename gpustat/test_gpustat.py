@@ -64,7 +64,11 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
         when(N).nvmlDeviceGetIndex(handle)\
             .thenReturn(i)
         when(N).nvmlDeviceGetName(handle)\
-            .thenReturn(('GeForce GTX TITAN %d' % i).encode())
+            .thenReturn({
+                0: 'GeForce GTX TITAN 0',
+                1: 'GeForce GTX TITAN 1',
+                2: 'GeForce RTX 2',
+            }[i].encode())
         when(N).nvmlDeviceGetUUID(handle)\
             .thenReturn({
                 0: b'GPU-10fb0fbd-2696-43f3-467f-d280d906a107',
@@ -176,13 +180,13 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
 MOCK_EXPECTED_OUTPUT_DEFAULT = os.linesep.join("""\
 [0] GeForce GTX TITAN 0 | 80°C,  76 % |  8000 / 12287 MB | user1(4000M) user2(4000M)
 [1] GeForce GTX TITAN 1 | 36°C,   0 % |  9000 / 12189 MB | user1(3000M) user3(6000M)
-[2] GeForce GTX TITAN 2 | 71°C,  ?? % |     0 / 12189 MB | (Not Supported)
+[2] GeForce RTX 2       | 71°C,  ?? % |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL = os.linesep.join("""\
 [0] GeForce GTX TITAN 0 | 80°C,  16 %,  76 % (E:  88 %  D:  67 %),  125 / 250 W |  8000 / 12287 MB | user1:python/48448(4000M) user2:python/153223(4000M)
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
-[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+[2] GeForce RTX 2       | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
 MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
@@ -192,7 +196,7 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
 [1] GeForce GTX TITAN 1 | 36°C,  53 %,   0 % (E:   0 %  D:   0 %),   ?? / 250 W |  9000 / 12189 MB | user1:torch/192453(3000M) user3:caffe/194826(6000M)
  ├─ 192453 ( 123%,   59MB): torch
  └─ 194826 (   0%, 1025MB): caffe
-[2] GeForce GTX TITAN 2 | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
+[2] GeForce RTX 2       | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
 
@@ -270,7 +274,7 @@ class TestGPUStat(object):
 
         # gpu 2: should ignore process id
         line = remove_ansi_codes(ret).split('\n')[3]
-        assert '[2] GeForce GTX TITAN 2' in line, str(line)
+        assert '[2] GeForce RTX 2' in line, str(line)
         assert '99999' not in line
         assert '(Not Supported)' not in line
 
@@ -345,6 +349,7 @@ class TestGPUStat(object):
         print("- Should have width=25")
         print(s)
         assert 'GeForce GTX TITAN 0       |' in remove_ansi_codes(s)
+        assert 'GeForce RTX 2             |' in remove_ansi_codes(s)
         #                         ^012345
         #                        19
 
@@ -353,6 +358,7 @@ class TestGPUStat(object):
         s = capture_output('gpustat', '--gpuname-width', '10')
         print(s)
         assert '…X TITAN 0 |' in remove_ansi_codes(s)
+        assert '…rce RTX 2 |' in remove_ansi_codes(s)
         #       1234567890
 
         print("- Should have width=1 (too short)")

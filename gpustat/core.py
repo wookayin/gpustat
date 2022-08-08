@@ -601,6 +601,10 @@ class GPUStatCollection(object):
         else:
             t_color = Terminal()   # auto, depending on isatty
 
+        # appearance settings
+        if gpuname_width is None:
+            gpuname_width = max([len(g.entry['name']) for g in self])
+
         # header
         if show_header:
             if IS_WINDOWS:

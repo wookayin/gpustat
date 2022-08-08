@@ -122,7 +122,7 @@ def main(*argv):
     )
     parser.add_argument(
         '--gpuname-width', type=nonnegative_int, default=None,
-        help='The minimum column width of GPU names, defaults to 16'
+        help='The width at which GPU names will be displayed.'
     )
     parser.add_argument(
         '--debug', action='store_true', default=False,
