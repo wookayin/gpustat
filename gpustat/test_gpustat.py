@@ -431,6 +431,10 @@ class TestGPUStat(object):
         from pprint import pprint
         pprint(j)
 
+        assert j['driver_version'] == '415.27.mock'
+        assert j['hostname']
+        assert j['gpus']
+
 
 if __name__ == '__main__':
     pytest.main()

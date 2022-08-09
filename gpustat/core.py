@@ -516,6 +516,9 @@ class GPUStatCollection(object):
                     process['cpu_percent'] = cache_process.cpu_percent()
 
             index = N.nvmlDeviceGetIndex(handle)
+
+            # GPU Info.
+            # We use the same key/spec as per `nvidia-smi --query-help-gpu`
             gpu_info = {
                 'index': index,
                 'uuid': uuid,
@@ -648,6 +651,7 @@ class GPUStatCollection(object):
     def jsonify(self):
         return {
             'hostname': self.hostname,
+            'driver_version': self.driver_version,
             'query_time': self.query_time,
             "gpus": [g.jsonify() for g in self]
         }
