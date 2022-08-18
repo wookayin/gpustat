@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import sys
 import time
+import argparse
 
 from blessed import Terminal
 
@@ -59,26 +60,17 @@ def loop_gpustat(interval=1.0, **kwargs):
                 return 0
 
 
-def main(*argv):
-    if not argv:
-        argv = list(sys.argv)
+def nonnegative_int(value):
+    value = int(value)
+    if value < 0:
+        raise argparse.ArgumentTypeError(
+            "Only non-negative integers are allowed.")
+    return value
 
-    # attach SIGPIPE handler to properly handle broken pipe
-    try: # sigpipe not available under windows. just ignore in this case
-        import signal
-        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except Exception as e:
-        pass
+
+def get_parser():
     # arguments to gpustat
-    import argparse
     parser = argparse.ArgumentParser()
-
-    def nonnegative_int(value):
-        value = int(value)
-        if value < 0:
-            raise argparse.ArgumentTypeError(
-                "Only non-negative integers are allowed.")
-        return value
 
     parser_color = parser.add_mutually_exclusive_group()
     parser_color.add_argument('--force-color', '--color', action='store_true',
@@ -102,11 +94,11 @@ def main(*argv):
                         action='store_true', help='Display GPU fan speed')
     parser.add_argument(
         '-e', '--show-codec', nargs='?', const='enc,dec', default='',
-        choices=['', 'enc', 'dec', 'enc,dec'],
+        metavar='codec', choices=['', 'enc', 'dec', 'enc,dec'],
         help='Show encoder/decoder utilization'
     )
     parser.add_argument(
-        '-P', '--show-power', nargs='?', const='draw,limit',
+        '-P', '--show-power', nargs='?', const='draw,limit', metavar='power',
         choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
         help='Show GPU power usage or draw (and/or limit)'
     )
@@ -130,6 +122,20 @@ def main(*argv):
     )
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
+    return parser
+
+
+def main(*argv):
+    if not argv:
+        argv = list(sys.argv)
+
+    # attach SIGPIPE handler to properly handle broken pipe
+    try:  # sigpipe not available under windows. just ignore in this case
+        import signal
+        signal.signal(signal.SIGPIPE, signal.SIG_DFL)
+    except Exception as e:
+        pass
+    parser = get_parser()
     args = parser.parse_args(argv[1:])
     if args.show_all:
         args.show_cmd = True

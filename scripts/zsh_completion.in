@@ -1,0 +1,47 @@
+#compdef {{programs}}
+# https://github.com/zsh-users/zsh/blob/master/Etc/completion-style-guide
+
+typeset -A opt_args
+
+local _codec=': :->codec'
+local _power=': :->power'
+local _float=': :->float'
+
+__gpustat() {
+  _arguments -s -S \
+    {{flags}}
+}
+
+__gpustat
+case $state in
+  codec)
+    case ${words[CURRENT]} in
+      -*)
+        _codec=
+        __gpustat
+        ;;
+      *)
+        _wanted codec expl 'codec' compadd - {{codec_choices}}
+    esac
+    ;;
+  power)
+    case ${words[CURRENT]} in
+      -*)
+        _power=
+        __gpustat
+        ;;
+      *)
+        _wanted power expl 'power' compadd - {{power_choices}}
+    esac
+    ;;
+  float)
+    case ${words[CURRENT]} in
+      -*)
+        _float=
+        __gpustat
+        ;;
+      *)
+        _numbers float
+    esac
+    ;;
+esac
