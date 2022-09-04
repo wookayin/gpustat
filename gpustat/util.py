@@ -7,9 +7,7 @@ import collections
 
 
 def bytes2human(in_bytes):
-    '''
-
-    '''
+    '''Convert bytes (int) to a human-readable string.'''
     suffixes = ('B', 'KB', 'MB', 'GB', 'TB', 'PB')
     suffix = 0
     result = int(in_bytes)
@@ -33,7 +31,8 @@ def prettify_commandline(cmdline, color_command='', color_text=''):
     assert cmdline
 
     command_p, command_b = os.path.split(cmdline[0])
-    s = color_text + os.path.join(command_p, color_command + command_b + color_text)
+    s = color_text + os.path.join(command_p,
+                                  color_command + command_b + color_text)
 
     if len(cmdline) > 1:
         s += ' '

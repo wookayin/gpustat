@@ -14,7 +14,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import json
-import textwrap
 import locale
 import os.path
 import platform
@@ -506,7 +505,6 @@ class GPUStatCollection(object):
                         # there appears to be a bug of psutil. It is unlikely
                         # FileNotFoundError is thrown in different situations.
                         pass
-
 
                 # TODO: Do not block if full process info is not requested
                 time.sleep(0.1)

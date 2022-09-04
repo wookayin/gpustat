@@ -153,6 +153,7 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
     }
     assert 99999 not in mock_pid_map, 'scenario_nonexistent_pid'
     assert 99995 not in mock_pid_map, 'scenario_nonexistent_pid (#95)'
+
     def _MockedProcess(pid):
         if pid not in mock_pid_map:
             if pid == 99995:
