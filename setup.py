@@ -85,7 +85,7 @@ tests_requires = [
     'mockito>=1.2.1',
 ]
 if sys.version_info >= (3, 5):
-    tests_requires += ['pytest>=5.4.1']
+    tests_requires += ['pytest>=5.4.1', 'pytest-runner']
 else:
     tests_requires += ['pytest<5.0', 'more_itertools<8.0', 'attrs<19.2.0']
 
