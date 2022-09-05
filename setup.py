@@ -83,11 +83,9 @@ install_requires = [
 
 tests_requires = [
     'mockito>=1.2.1',
+    'pytest>=5.4.1',  # python 3.6+
+    'pytest-runner',
 ]
-if sys.version_info >= (3, 5):
-    tests_requires += ['pytest>=5.4.1', 'pytest-runner']
-else:
-    tests_requires += ['pytest<5.0', 'more_itertools<8.0', 'attrs<19.2.0']
 
 setup(
     name='gpustat',
@@ -120,5 +118,5 @@ setup(
     },
     include_package_data=True,
     zip_safe=False,
-    python_requires='>=3.4',
+    python_requires='>=3.6',
 )
