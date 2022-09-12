@@ -60,6 +60,7 @@ Options (Please see `gpustat --help` for more details):
 * `-e`, `--show-codec` : Display encoder and/or decoder utilization
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `-a`, `--show-all`   : Display all gpu properties above
+* `-n`, `--no-processes`    : Hide memory data for individual processes.
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
 * `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
 

@@ -127,7 +127,7 @@ def main(*argv):
         help='Allow to print additional informations for debugging.'
     )
     parser.add_argument(
-        '--no-processes', dest='no_processes', action='store_true',
+        '-n', '--no-processes', dest='no_processes', action='store_true',
         help='Hide memory ussage from individual processes.'
     )
     parser.add_argument('-v', '--version', action='version',
