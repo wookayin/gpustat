@@ -89,7 +89,7 @@ def main(*argv):
     parser.add_argument('-c', '--show-cmd', action='store_true',
                         help='Display cmd name of running process')
     parser.add_argument(
-        '-f', '--show-full-cmd', action='store_true',
+        '-f', '--show-full-cmd', action='store_true', default=False,
         help='Display full command and cpu stats of running process'
     )
     parser.add_argument('-u', '--show-user', action='store_true',
@@ -125,6 +125,10 @@ def main(*argv):
     parser.add_argument(
         '--debug', action='store_true', default=False,
         help='Allow to print additional informations for debugging.'
+    )
+    parser.add_argument(
+        '--no-processes', dest='no_processes', action='store_true',
+        help='Hide memory ussage from individual processes.'
     )
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))

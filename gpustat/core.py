@@ -187,6 +187,7 @@ class GPUStat(object):
                  show_codec="",
                  show_power=None,
                  gpuname_width=None,
+                 no_processes=False,
                  term=None,
                  ):
         if term is None:
@@ -326,7 +327,7 @@ class GPUStat(object):
         if processes is None:
             # None (not available)
             reps += ' ({})'.format(NOT_SUPPORTED)
-        else:
+        elif not no_processes:
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
@@ -584,6 +585,7 @@ class GPUStatCollection(object):
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,
                         gpuname_width=None, show_header=True,
+                        no_processes=False,
                         eol_char=os.linesep,
                         ):
         # ANSI color configuration
@@ -641,6 +643,7 @@ class GPUStatCollection(object):
                        show_codec=show_codec,
                        show_power=show_power,
                        gpuname_width=gpuname_width,
+                       no_processes=no_processes,
                        term=t_color)
             fp.write(eol_char)
 
