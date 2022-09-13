@@ -111,7 +111,7 @@ setup(
     ],
     packages=['gpustat'],
     install_requires=install_requires,
-    extras_require={'test': tests_requires},
+    extras_require={'test': tests_requires, 'completion': ['shtab']},
     tests_require=tests_requires,
     entry_points={
         'console_scripts': ['gpustat=gpustat:main'],
