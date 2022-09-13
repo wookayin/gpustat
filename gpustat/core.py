@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Implementation of gpustat
@@ -8,11 +7,6 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import json
 import locale
 import os.path
@@ -20,13 +14,13 @@ import platform
 import sys
 import time
 from datetime import datetime
+from io import StringIO
 
-from six.moves import cStringIO as StringIO
 import psutil
 from blessed import Terminal
 
-from gpustat.nvml import pynvml as N
 import gpustat.util as util
+from gpustat.nvml import pynvml as N
 
 
 NOT_SUPPORTED = 'Not Supported'

@@ -3,14 +3,11 @@ Unit or integration tests for gpustat
 """
 # flake8: ignore=E501
 
-from __future__ import print_function
-from __future__ import absolute_import
-
 import sys
 import os
 import shlex
 from collections import namedtuple
-from io import StringIO    # Python 3 only
+from io import StringIO
 
 import psutil
 import pytest
