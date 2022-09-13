@@ -1,3 +1,4 @@
+from contextlib import suppress
 import os
 import sys
 import time
@@ -6,6 +7,51 @@ from blessed import Terminal
 
 from gpustat import __version__
 from gpustat.core import GPUStatCollection
+
+
+PREAMBLE = {
+    'zsh': '''\
+# % gpustat -i <TAB>
+# float
+# % gpustat -i -<TAB>
+# option
+# -a                   Display all gpu properties above
+# ...
+_complete_for_one_or_zero() {
+  if [[ ${words[CURRENT]} == -* ]]; then
+    # override the original options
+    _shtab_gpustat_options=(${words[CURRENT - 1]} $_shtab_gpustat_options)
+    _arguments -C $_shtab_gpustat_options
+  else
+    eval "${@[-1]}"
+  fi
+}
+'''
+}
+
+
+def zsh_choices_to_complete(choices, tag='', description=''):
+    '''
+    Change choices to complete for zsh.
+    https://github.com/zsh-users/zsh/blob/master/Etc/completion-style-guide#L224
+    '''
+    complete = 'compadd - ' + ' '.join(filter(len, choices))
+    if description == '':
+        description = tag
+    if tag != '':
+        complete = '_wanted ' + tag + ' expl ' + description + ' ' + complete
+    return complete
+
+
+def get_complete_for_one_or_zero(input):
+    '''
+    Get shell complete for nargs='?'. Now only support zsh.
+    '''
+    output = {}
+    for sh, complete in input.items():
+        if sh == 'zsh':
+            output[sh] = "_complete_for_one_or_zero '" + complete + "'"
+    return output
 
 
 def print_gpustat(*, json=False, debug=False, **kwargs):
@@ -65,7 +111,12 @@ def main(*argv):
         pass
     # arguments to gpustat
     import argparse
-    parser = argparse.ArgumentParser()
+    try:
+        import shtab
+    except ImportError:
+        from . import _shtab as shtab
+    parser = argparse.ArgumentParser('gpustat')
+    shtab.add_argument_to(parser, preamble=PREAMBLE)
 
     def nonnegative_int(value):
         value = int(value)
@@ -94,22 +145,28 @@ def main(*argv):
                         help='Display PID of running process')
     parser.add_argument('-F', '--show-fan-speed', '--show-fan',
                         action='store_true', help='Display GPU fan speed')
+    codec_choices = ['', 'enc', 'dec', 'enc,dec']
     parser.add_argument(
         '-e', '--show-codec', nargs='?', const='enc,dec', default='',
-        choices=['', 'enc', 'dec', 'enc,dec'],
+        choices=codec_choices,
         help='Show encoder/decoder utilization'
+    ).complete = get_complete_for_one_or_zero(
+        {'zsh': zsh_choices_to_complete(codec_choices, 'codec')}
     )
+    power_choices = ['', 'draw', 'limit', 'draw,limit', 'limit,draw']
     parser.add_argument(
         '-P', '--show-power', nargs='?', const='draw,limit',
-        choices=['', 'draw', 'limit', 'draw,limit', 'limit,draw'],
+        choices=power_choices,
         help='Show GPU power usage or draw (and/or limit)'
+    ).complete = get_complete_for_one_or_zero(
+        {'zsh': zsh_choices_to_complete(power_choices, 'power')}
     )
     parser.add_argument('--json', action='store_true', default=False,
                         help='Print all the information in JSON format')
     parser.add_argument(
         '-i', '--interval', '--watch', nargs='?', type=float, default=0,
         help='Use watch mode if given; seconds to wait between updates'
-    )
+    ).complete = get_complete_for_one_or_zero({'zsh': '_numbers float'})
     parser.add_argument(
         '--no-header', dest='show_header', action='store_false', default=True,
         help='Suppress header message'
@@ -129,6 +186,9 @@ def main(*argv):
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
     args = parser.parse_args(argv[1:])
+    # TypeError: GPUStatCollection.print_formatted() got an unexpected keyword argument 'print_completion'
+    with suppress(AttributeError):
+        del args.print_completion  # type: ignore
     if args.show_all:
         args.show_cmd = True
         args.show_user = True
