@@ -332,10 +332,16 @@ class GPUStat(object):
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
                     full_processes.append(os.linesep + full_process_info(p))
+
+        # Remove trailing | if no process information is shown.
+        if no_processes and reps[-1]=="|":  
+            reps = reps[:-2]
+
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
         fp.write(reps)
+        #print(reps)
         return fp
 
     def jsonify(self):
