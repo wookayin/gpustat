@@ -3,19 +3,19 @@ Unit or integration tests for gpustat
 """
 # flake8: ignore=E501
 
-import sys
 import os
 import shlex
+import sys
+import types
 from collections import namedtuple
 from io import StringIO
 
 import psutil
 import pytest
-from mockito import when, mock, unstub
+from mockito import mock, unstub, when
 
 import gpustat
 from gpustat.nvml import pynvml
-
 
 MB = 1024 * 1024
 
@@ -29,8 +29,9 @@ def remove_ansi_codes(s):
 # -----------------------------------------------------------------------------
 
 
-def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
-                    nosuchprocess_exception_type=psutil.NoSuchProcess,
+def _configure_mock(N=pynvml,
+                    _scenario_nonexistent_pid=False,  # GH-95
+                    _scenario_failing_one_gpu=None,   # GH-125, GH-81
                     ):
     """Define mock behaviour for pynvml and psutil.{Process,virtual_memory}."""
 
@@ -43,12 +44,14 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
     when(N).nvmlSystemGetDriverVersion().thenReturn('415.27.mock')
 
     NUM_GPUS = 3
-    mock_handles = ['mock-handle-%d' % i for i in range(3)]
+    mock_handles = [types.SimpleNamespace(value='mock-handle-%d' % i)
+                    for i in range(3)]
     when(N).nvmlDeviceGetCount().thenReturn(NUM_GPUS)
 
     def _return_or_raise(v):
         """Return a callable for thenAnswer() to let exceptions re-raised."""
         def _callable(*args, **kwargs):
+            del args, kwargs
             if isinstance(v, Exception):
                 raise v
             return v
@@ -56,8 +59,13 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
 
     for i in range(NUM_GPUS):
         handle = mock_handles[i]
+        if _scenario_failing_one_gpu and i == 2:  # see #81, #125
+            assert (_scenario_failing_one_gpu is N.NVMLError_Unknown or
+                    _scenario_failing_one_gpu is N.NVMLError_GpuIsLost)
+            handle = _scenario_failing_one_gpu()  # see 81
+
         when(N).nvmlDeviceGetHandleByIndex(i)\
-            .thenReturn(handle)
+            .thenAnswer(_return_or_raise(handle))
         when(N).nvmlDeviceGetIndex(handle)\
             .thenReturn(i)
         when(N).nvmlDeviceGetName(handle)\
@@ -118,7 +126,7 @@ def _configure_mock(N=pynvml, scenario_nonexistent_pid=False,
         # running process information: a bit annoying...
         mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
 
-        if scenario_nonexistent_pid:
+        if _scenario_nonexistent_pid:
             mock_processes_gpu2_erratic = [
                 mock_process_t(99999, 9999*MB),
                 mock_process_t(99995, 9995*MB),   # see issue #95
@@ -204,9 +212,25 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
 def scenario_basic():
     _configure_mock()
 
+
 @pytest.fixture
 def scenario_nonexistent_pid():
-    _configure_mock(scenario_nonexistent_pid=True)
+    _configure_mock(_scenario_nonexistent_pid=True)
+
+
+@pytest.fixture
+def scenario_failing_one_gpu(request):
+    # request.param should be either NVMLError_Unknown or NVMLError_GpuIsLost
+    _configure_mock(_scenario_failing_one_gpu=request.param)
+    return dict(expected_message={
+        pynvml.NVMLError_GpuIsLost: 'GPU is lost',
+        pynvml.NVMLError_Unknown: 'Unknown Error',
+    }[request.param])
+
+
+@pytest.fixture
+def scenario_gpu_is_lost():
+    _configure_mock(_scenario_failing_one_gpu=pynvml.NVMLError_GpuIsLost)
 
 
 class TestGPUStat(object):
@@ -275,6 +299,33 @@ class TestGPUStat(object):
         assert '[2] GeForce RTX 2' in line, str(line)
         assert '99999' not in line
         assert '(Not Supported)' not in line
+
+    @pytest.mark.parametrize("scenario_failing_one_gpu", [
+        pynvml.NVMLError_GpuIsLost,
+        pynvml.NVMLError_Unknown,
+    ], indirect=True)
+    def test_new_query_mocked_failing_one_gpu(self, scenario_failing_one_gpu):
+        """Test a case where one GPU is failing (see #125)."""
+        fp = StringIO()
+        gpustats = gpustat.new_query()
+        gpustats.print_formatted(fp=fp, show_header=False)
+        ret = fp.getvalue()
+        print(ret)
+
+        lines = remove_ansi_codes(ret).split('\n')
+        message = scenario_failing_one_gpu['expected_message']
+
+        # gpu 2: failing due to unknown error
+        line = lines[2]
+        assert '[2] ((' + message + '))' in line, str(line)
+        assert '99999' not in line
+        assert '?°C,   ? %' in line, str(line)
+        assert '? /     ? MB' in line, str(line)
+
+        # other gpus should be displayed normally
+        assert '[0] GeForce GTX TITAN 0' in lines[0]
+        assert '[1] GeForce GTX TITAN 1' in lines[1]
+
 
     def test_attributes_and_items(self, scenario_basic):
         """Test whether each property of `GPUStat` instance is well-defined."""
