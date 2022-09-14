@@ -1,6 +1,13 @@
 Changelog for `gpustat`
 =======================
 
+## Unreleased (v1.1)
+
+- Python minimum version is raised to 3.6+ (compatible with Ubuntu 20.04 LTS).
+
+
+
+
 ## [v1.0][milestone-1.0] (2022/9/4)
 
 [milestone-1.0]: https://github.com/wookayin/gpustat/issues?q=milestone%3A1.0

@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 import sys
 import os
@@ -75,7 +74,6 @@ class DeployCommand(Command):
 
 
 install_requires = [
-    'six>=1.7',
     'nvidia-ml-py>=11.450.129,<=11.495.46',  # see #107
     'psutil>=5.6.0',    # GH-1447
     'blessed>=1.17.1',  # GH-126
@@ -83,11 +81,9 @@ install_requires = [
 
 tests_requires = [
     'mockito>=1.2.1',
+    'pytest>=5.4.1',  # python 3.6+
+    'pytest-runner',
 ]
-if sys.version_info >= (3, 5):
-    tests_requires += ['pytest>=5.4.1', 'pytest-runner']
-else:
-    tests_requires += ['pytest<5.0', 'more_itertools<8.0', 'attrs<19.2.0']
 
 setup(
     name='gpustat',
@@ -102,7 +98,7 @@ setup(
     keywords='nvidia-smi gpu cuda monitoring gpustat',
     classifiers=[
         # https://pypi.python.org/pypi?%3Aaction=list_classifiers
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3',
@@ -120,5 +116,5 @@ setup(
     },
     include_package_data=True,
     zip_safe=False,
-    python_requires='>=3.4',
+    python_requires='>=3.6',
 )

@@ -10,10 +10,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-18.04
-            python-version: "3.4"
-          - os: ubuntu-latest
-            python-version: "3.5"
           - os: ubuntu-latest
             python-version: "3.6"
           - os: ubuntu-latest

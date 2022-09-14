@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
 import sys
 import time
@@ -9,7 +5,7 @@ import time
 from blessed import Terminal
 
 from gpustat import __version__
-from .core import GPUStatCollection
+from gpustat.core import GPUStatCollection
 
 
 def print_gpustat(json=False, debug=False, **kwargs):
