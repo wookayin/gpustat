@@ -284,7 +284,10 @@ class GPUStat(object):
                 self.entry["name"], width=gpuname_width, placeholder='…'),
             gpuname_width=gpuname_width or DEFAULT_GPUNAME_WIDTH
         )
-        reps += " |"
+
+        # Add " |" only if processes information is to be added.
+        if not no_processes:
+            reps += " |"
 
         def process_repr(p):
             r = ''
@@ -324,7 +327,7 @@ class GPUStat(object):
 
         processes = self.entry['processes']
         full_processes = []
-        if processes is None:
+        if processes is None and not no_processes:
             # None (not available)
             reps += ' ({})'.format(NOT_SUPPORTED)
         elif not no_processes:
@@ -333,15 +336,10 @@ class GPUStat(object):
                 if show_full_cmd:
                     full_processes.append(os.linesep + full_process_info(p))
 
-        # Remove trailing | if no process information is shown.
-        if no_processes and reps[-1]=="|":  
-            reps = reps[:-2]
-
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
         fp.write(reps)
-        #print(reps)
         return fp
 
     def jsonify(self):

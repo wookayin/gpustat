@@ -203,7 +203,7 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
 MOCK_EXPECTED_OUTPUT_NO_PROCESSES = os.linesep.join("""\
 [0] GeForce GTX TITAN 0 | 80°C,  76 % |  8000 / 12287 MB
 [1] GeForce GTX TITAN 1 | 36°C,   0 % |  9000 / 12189 MB
-[2] GeForce RTX 2       | 71°C,  ?? % |     0 / 12189 MB | (Not Supported)
+[2] GeForce RTX 2       | 71°C,  ?? % |     0 / 12189 MB
 """.splitlines())  # noqa: E501
 
 # -----------------------------------------------------------------------------
