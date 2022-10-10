@@ -175,7 +175,7 @@ class GPUStat(object):
         """
         return self.entry['processes']
 
-    def print_to(self, fp,
+    def print_to(self, fp, *,
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
                  show_full_cmd=False,
@@ -614,7 +614,8 @@ class GPUStatCollection(object):
 
     # --- Printing Functions ---
 
-    def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
+    def print_formatted(self, fp=sys.stdout, *,
+                        force_color=False, no_color=False,
                         show_cmd=False, show_full_cmd=False, show_user=False,
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,

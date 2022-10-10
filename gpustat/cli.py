@@ -8,7 +8,7 @@ from gpustat import __version__
 from gpustat.core import GPUStatCollection
 
 
-def print_gpustat(json=False, debug=False, **kwargs):
+def print_gpustat(*, json=False, debug=False, **kwargs):
     '''Display the GPU query results into standard output.'''
     try:
         gpu_stats = GPUStatCollection.new_query(debug=debug)
