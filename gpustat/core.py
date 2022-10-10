@@ -185,6 +185,7 @@ class GPUStat(object):
                  show_codec="",
                  show_power=None,
                  gpuname_width=None,
+                 eol_char=os.linesep,
                  term=None,
                  ):
         if term is None:
@@ -338,7 +339,7 @@ class GPUStat(object):
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
-                    full_processes.append(os.linesep + full_process_info(p))
+                    full_processes.append(eol_char + full_process_info(p))
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
@@ -675,6 +676,7 @@ class GPUStatCollection(object):
                        show_codec=show_codec,
                        show_power=show_power,
                        gpuname_width=gpuname_width,
+                       eol_char=eol_char,
                        term=t_color)
             fp.write(eol_char)
 
