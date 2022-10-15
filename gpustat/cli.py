@@ -124,7 +124,7 @@ def main(*argv):
     )
     parser.add_argument(
         '--no-processes', dest='no_processes', action='store_true',
-        help='Hide memory ussage from individual processes.'
+        help='Do not display running process information (memory, user, etc.)'
     )
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))

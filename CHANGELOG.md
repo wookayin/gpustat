@@ -1,16 +1,21 @@
 Changelog for `gpustat`
 =======================
 
-## Unreleased (v1.1)
+## [v1.1][milestone-1.1] (Unreleased)
+
+[milestone-1.1]: https://github.com/wookayin/gpustat/milestone/5
 
 - Python minimum version is raised to 3.6+ (compatible with Ubuntu 20.04 LTS).
 
+## New Feature
+
+- Add a new flag --no-processes to hide process information (#133)
 
 
 
 ## [v1.0][milestone-1.0] (2022/9/4)
 
-[milestone-1.0]: https://github.com/wookayin/gpustat/issues?q=milestone%3A1.0
+[milestone-1.0]: https://github.com/wookayin/gpustat/milestone/4
 
 ### Breaking Changes
 
