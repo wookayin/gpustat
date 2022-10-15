@@ -175,13 +175,13 @@ class GPUStat(object):
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
                  show_full_cmd=False,
+                 no_processes=False,
                  show_user=False,
                  show_pid=False,
                  show_fan_speed=None,
                  show_codec="",
                  show_power=None,
                  gpuname_width=None,
-                 no_processes=False,
                  term=None,
                  ):
         if term is None:
