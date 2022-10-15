@@ -7,10 +7,17 @@ Changelog for `gpustat`
 
 - Python minimum version is raised to 3.6+ (compatible with Ubuntu 20.04 LTS).
 
-## New Feature
+### New Feature
 
 - Add a new flag --no-processes to hide process information (#133)
 
+### Enhancements
+
+- Handle Lost GPU and Unknown Error situations (#81, #125)
+
+### Bugfix
+
+- Fix afterimage texts when the number of processes changes in the watch mode (#100)
 
 
 ## [v1.0][milestone-1.0] (2022/9/4)
