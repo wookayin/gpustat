@@ -205,6 +205,11 @@ MOCK_EXPECTED_OUTPUT_FULL_PROCESS = os.linesep.join("""\
 [2] GeForce RTX 2       | 71°C, 100 %,  ?? % (E:  ?? %  D:  ?? %),  250 /  ?? W |     0 / 12189 MB | (Not Supported)
 """.splitlines())  # noqa: E501
 
+MOCK_EXPECTED_OUTPUT_NO_PROCESSES = os.linesep.join("""\
+[0] GeForce GTX TITAN 0 | 80°C,  76 % |  8000 / 12287 MB
+[1] GeForce GTX TITAN 1 | 36°C,   0 % |  9000 / 12189 MB
+[2] GeForce RTX 2       | 71°C,  ?? % |     0 / 12189 MB
+""".splitlines())  # noqa: E501
 
 # -----------------------------------------------------------------------------
 
@@ -387,6 +392,9 @@ class TestGPUStat(object):
         unescaped = remove_ansi_codes(s)
         assert s == unescaped   # should have no ansi code
         assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_DEFAULT
+
+        s = capture_output('gpustat', '--no-processes')
+        assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_NO_PROCESSES
 
     def test_args_commandline_width(self, scenario_basic):
         capture_output = self.capture_output

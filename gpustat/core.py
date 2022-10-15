@@ -179,6 +179,7 @@ class GPUStat(object):
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
                  show_full_cmd=False,
+                 no_processes=False,
                  show_user=False,
                  show_pid=False,
                  show_fan_speed=None,
@@ -292,7 +293,10 @@ class GPUStat(object):
                 self.entry["name"], width=gpuname_width, placeholder='…'),
             gpuname_width=gpuname_width or DEFAULT_GPUNAME_WIDTH
         )
-        reps += " |"
+
+        # Add " |" only if processes information is to be added.
+        if not no_processes:
+            reps += " |"
 
         def process_repr(p):
             r = ''
@@ -332,10 +336,10 @@ class GPUStat(object):
 
         processes = self.entry['processes']
         full_processes = []
-        if processes is None:
+        if processes is None and not no_processes:
             # None (not available)
             reps += ' ({})'.format(NOT_SUPPORTED)
-        else:
+        elif not no_processes:
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
@@ -620,6 +624,7 @@ class GPUStatCollection(object):
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,
                         gpuname_width=None, show_header=True,
+                        no_processes=False,
                         eol_char=os.linesep,
                         ):
         # ANSI color configuration
@@ -671,6 +676,7 @@ class GPUStatCollection(object):
             g.print_to(fp,
                        show_cmd=show_cmd,
                        show_full_cmd=show_full_cmd,
+                       no_processes=no_processes,
                        show_user=show_user,
                        show_pid=show_pid,
                        show_fan_speed=show_fan_speed,
