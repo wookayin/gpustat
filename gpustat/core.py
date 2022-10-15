@@ -50,6 +50,10 @@ class GPUStat(object):
         return self.entry[key]
 
     @property
+    def available(self):
+        return True
+
+    @property
     def index(self):
         """
         Returns the index of GPU (as in nvidia-smi).
@@ -171,7 +175,7 @@ class GPUStat(object):
         """
         return self.entry['processes']
 
-    def print_to(self, fp,
+    def print_to(self, fp, *,
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
                  show_full_cmd=False,
@@ -182,6 +186,7 @@ class GPUStat(object):
                  show_codec="",
                  show_power=None,
                  gpuname_width=None,
+                 eol_char=os.linesep,
                  term=None,
                  ):
         if term is None:
@@ -202,13 +207,16 @@ class GPUStat(object):
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
         colors['CBold'] = term.bold
-        colors['CName'] = term.blue
+        colors['CName'] = _conditional(lambda: self.available,
+                                       term.blue, term.red)
         colors['CTemp'] = _conditional(lambda: self.temperature < 50,
                                        term.red, term.bold_red)
         colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30,
                                         term.cyan, term.bold_cyan)
-        colors['CMemU'] = term.bold_yellow
-        colors['CMemT'] = term.yellow
+        colors['CMemU'] = _conditional(lambda: self.available,
+                                       term.bold_yellow, term.bold_black)
+        colors['CMemT'] = _conditional(lambda: self.available,
+                                       term.yellow, term.bold_black)
         colors['CMemP'] = term.yellow
         colors['CCPUMemU'] = term.yellow
         colors['CUser'] = term.bold_black   # gray
@@ -272,8 +280,15 @@ class GPUStat(object):
         reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s " \
             "/ %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
         reps = (reps) % colors
+
+        class entry_repr_accessor:
+            def __init__(self, entry):
+                self.entry = entry
+            def __getitem__(self, key):
+                return _repr(self.entry[key])
+
         reps = reps.format(
-            entry={k: _repr(v) for k, v in self.entry.items()},
+            entry=entry_repr_accessor(self.entry),
             entry_name=util.shorten_left(
                 self.entry["name"], width=gpuname_width, placeholder='…'),
             gpuname_width=gpuname_width or DEFAULT_GPUNAME_WIDTH
@@ -328,8 +343,7 @@ class GPUStat(object):
             for p in processes:
                 reps += ' ' + process_repr(p)
                 if show_full_cmd:
-                    full_processes.append(os.linesep + full_process_info(p))
-
+                    full_processes.append(eol_char + full_process_info(p))
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
             reps += ''.join(full_processes)
@@ -342,6 +356,24 @@ class GPUStat(object):
             o['processes'] = [{k: v for (k, v) in p.items() if k != 'gpu_uuid'}
                               for p in self.entry['processes']]
         return o
+
+
+class InvalidGPU(GPUStat):
+    class FallbackDict(dict):
+        def __missing__(self, key):
+            return "?"
+
+    def __init__(self, gpu_index, message, ex):
+        super().__init__(self.FallbackDict(
+            index=gpu_index,
+            name=message,
+            processes=None
+        ))
+        self.exception = ex
+
+    @property
+    def available(self):
+        return False
 
 
 class GPUStatCollection(object):
@@ -543,9 +575,17 @@ class GPUStatCollection(object):
         device_count = N.nvmlDeviceGetCount()
 
         for index in range(device_count):
-            handle = N.nvmlDeviceGetHandleByIndex(index)
-            gpu_info = get_gpu_info(handle)
-            gpu_stat = GPUStat(gpu_info)
+            try:
+                handle = N.nvmlDeviceGetHandleByIndex(index)
+                gpu_info = get_gpu_info(handle)
+                gpu_stat = GPUStat(gpu_info)
+            except N.NVMLError_Unknown as e:
+                gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
+            except N.NVMLError_GpuIsLost as e:
+                gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
+
+            if isinstance(gpu_stat, InvalidGPU):
+                log.add_exception("GPU %d" % index, gpu_stat.exception)
             gpu_list.append(gpu_stat)
 
         # 2. additional info (driver version, etc).
@@ -578,7 +618,8 @@ class GPUStatCollection(object):
 
     # --- Printing Functions ---
 
-    def print_formatted(self, fp=sys.stdout, force_color=False, no_color=False,
+    def print_formatted(self, fp=sys.stdout, *,
+                        force_color=False, no_color=False,
                         show_cmd=False, show_full_cmd=False, show_user=False,
                         show_pid=False, show_fan_speed=None,
                         show_codec="", show_power=None,
@@ -635,13 +676,14 @@ class GPUStatCollection(object):
             g.print_to(fp,
                        show_cmd=show_cmd,
                        show_full_cmd=show_full_cmd,
+                       no_processes=no_processes,
                        show_user=show_user,
                        show_pid=show_pid,
                        show_fan_speed=show_fan_speed,
                        show_codec=show_codec,
                        show_power=show_power,
                        gpuname_width=gpuname_width,
-                       no_processes=no_processes,
+                       eol_char=eol_char,
                        term=t_color)
             fp.write(eol_char)
 
