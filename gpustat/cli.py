@@ -13,9 +13,13 @@ def print_gpustat(*, json=False, debug=False, **kwargs):
     try:
         gpu_stats = GPUStatCollection.new_query(debug=debug)
     except Exception as e:
-        sys.stderr.write('Error on querying NVIDIA devices.'
-                         ' Use --debug flag for details\n')
+        sys.stderr.write('Error on querying NVIDIA devices. '
+                         'Use --debug flag to see more details.\n')
+        term = Terminal(stream=sys.stderr)
+        sys.stderr.write(term.red(str(e)) + '\n')
+
         if debug:
+            sys.stderr.write('\n')
             try:
                 import traceback
                 traceback.print_exc(file=sys.stderr)

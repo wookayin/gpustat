@@ -14,6 +14,7 @@ Changelog for `gpustat`
 ### Enhancements
 
 - Handle Lost GPU and Unknown Error situations (#81, #125)
+- Print a summary of the error message when an error happens.
 
 ### Bugfix
 
