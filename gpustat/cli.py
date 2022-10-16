@@ -140,7 +140,7 @@ def main(*argv):
         args.show_fan_speed = True
         args.show_codec = 'enc,dec'
         args.show_power = 'draw,limit'
-    del args.show_all
+    del args.show_all  # type: ignore
 
     if args.interval is None:  # with default value
         args.interval = 1.0
@@ -153,7 +153,7 @@ def main(*argv):
 
         loop_gpustat(**vars(args))
     else:
-        del args.interval
+        del args.interval  # type: ignore
         print_gpustat(**vars(args))
 
 

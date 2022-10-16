@@ -57,6 +57,7 @@ def _configure_mock(N=pynvml,
             return v
         return _callable
 
+    mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
     for i in range(NUM_GPUS):
         handle = mock_handles[i]
         if _scenario_failing_one_gpu and i == 2:  # see #81, #125
@@ -94,7 +95,6 @@ def _configure_mock(N=pynvml,
                 0: 250000, 1: 250000, 2: N.NVMLError_NotSupported()
             }[i]))
 
-        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
         when(N).nvmlDeviceGetMemoryInfo(handle)\
             .thenAnswer(_return_or_raise({
                 0: mock_memory_t(total=12883853312, used=8000*MB),

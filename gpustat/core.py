@@ -7,21 +7,23 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
+import collections.abc
 import json
 import locale
+import os
 import os.path
 import platform
 import sys
 import time
 from datetime import datetime
 from io import StringIO
+from typing import Any, Optional, Sequence, Union
 
 import psutil
 from blessed import Terminal
 
 import gpustat.util as util
 from gpustat.nvml import pynvml as N
-
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -30,8 +32,14 @@ DEFAULT_GPUNAME_WIDTH = 16
 
 IS_WINDOWS = 'windows' in platform.platform().lower()
 
+# Type aliases
+GPUId = str   # UUID
+MemorySize = int
+Percentage = int
+PowerWatt = int
 
-class GPUStat(object):
+
+class GPUStat:
 
     def __init__(self, entry):
         if not isinstance(entry, dict):
@@ -50,144 +58,133 @@ class GPUStat(object):
         return self.entry[key]
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return True
 
     @property
-    def index(self):
-        """
-        Returns the index of GPU (as in nvidia-smi).
-        """
+    def index(self) -> int:
+        """Returns the index of GPU (as in nvidia-smi)."""
         return self.entry['index']
 
     @property
-    def uuid(self):
-        """
-        Returns the uuid returned by nvidia-smi,
+    def uuid(self) -> GPUId:
+        """Returns the uuid returned by nvidia-smi.
+
         e.g. GPU-12345678-abcd-abcd-uuid-123456abcdef
         """
         return self.entry['uuid']
 
     @property
-    def name(self):
-        """
-        Returns the name of GPU card (e.g. Geforce Titan X)
-        """
+    def name(self) -> str:
+        """Returns the name of GPU card (e.g. Geforce Titan X)."""
         return self.entry['name']
 
     @property
-    def memory_total(self):
-        """
-        Returns the total memory (in MB) as an integer.
-        """
+    def memory_total(self) -> MemorySize:
+        """Returns the total memory (in MB) as an integer."""
         return int(self.entry['memory.total'])
 
     @property
-    def memory_used(self):
-        """
-        Returns the occupied memory (in MB) as an integer.
-        """
+    def memory_used(self) -> MemorySize:
+        """Returns the occupied memory (in MB) as an integer."""
         return int(self.entry['memory.used'])
 
     @property
-    def memory_free(self):
-        """
-        Returns the free (available) memory (in MB) as an integer.
-        """
+    def memory_free(self) -> MemorySize:
+        """Returns the free (available) memory (in MB) as an integer."""
         v = self.memory_total - self.memory_used
         return max(v, 0)
 
     @property
-    def memory_available(self):
-        """
-        Returns the available memory (in MB) as an integer.
+    def memory_available(self) -> MemorySize:
+        """Returns the available memory (in MB) as an integer.
+
         Alias of memory_free.
         """
         return self.memory_free
 
     @property
-    def temperature(self):
-        """
-        Returns the temperature (in celcius) of GPU as an integer,
-        or None if the information is not available.
+    def temperature(self) -> Optional[int]:
+        """Returns the temperature (in celcius) of GPU as an integer.
+
+        None if the information is not available.
         """
         v = self.entry['temperature.gpu']
         return int(v) if v is not None else None
 
     @property
-    def fan_speed(self):
-        """
-        Returns the fan speed percentage (0-100) of maximum intended speed
-        as an integer, or None if the information is not available.
+    def fan_speed(self) -> Optional[Percentage]:
+        """Returns the fan speed percentage (0-100) as an integer.
+
+        The value is relative to maximum intended speed (100 is the max speed),
+        or None if the information is not available.
         """
         v = self.entry['fan.speed']
         return int(v) if v is not None else None
 
     @property
-    def utilization(self):
-        """
-        Returns the GPU utilization (in percentile),
-        or None if the information is not available.
+    def utilization(self) -> Optional[Percentage]:
+        """Returns the GPU utilization (in percentile).
+
+        None if the information is not available.
         """
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
 
     @property
-    def utilization_enc(self):
-        """
-        Returns the GPU encoder utilization (in percentile),
-        or None if the information is not available.
+    def utilization_enc(self) -> Optional[Percentage]:
+        """Returns the GPU encoder utilization (in percentile).
+
+        None if the information is not available.
         """
         v = self.entry['utilization.enc']
         return int(v) if v is not None else None
 
     @property
-    def utilization_dec(self):
-        """
-        Returns the GPU decoder utilization (in percentile),
-        or None if the information is not available.
+    def utilization_dec(self) -> Optional[Percentage]:
+        """Returns the GPU decoder utilization (in percentile).
+
+        None if the information is not available.
         """
         v = self.entry['utilization.dec']
         return int(v) if v is not None else None
 
     @property
-    def power_draw(self):
-        """
-        Returns the GPU power usage in Watts,
-        or None if the information is not available.
+    def power_draw(self) -> Optional[PowerWatt]:
+        """Returns the GPU power usage in Watts (W)
+
+        None if the information is not available.
         """
         v = self.entry['power.draw']
         return int(v) if v is not None else None
 
     @property
-    def power_limit(self):
-        """
-        Returns the (enforced) GPU power limit in Watts,
-        or None if the information is not available.
+    def power_limit(self) -> Optional[PowerWatt]:
+        """Returns the (enforced) GPU power limit in Watts (W).
+
+        None if the information is not available.
         """
         v = self.entry['enforced.power.limit']
         return int(v) if v is not None else None
 
     @property
     def processes(self):
-        """
-        Get the list of running processes on the GPU.
-        """
+        """Get the list of running processes on the GPU."""
         return self.entry['processes']
 
     def print_to(self, fp, *,
-                 with_colors=True,    # deprecated arg
-                 show_cmd=False,
-                 show_full_cmd=False,
-                 no_processes=False,
-                 show_user=False,
-                 show_pid=False,
-                 show_fan_speed=None,
+                 with_colors: bool = True,    # deprecated arg
+                 show_cmd: bool = False,
+                 show_full_cmd: bool = False,
+                 no_processes: bool = False,
+                 show_user: bool = False,
+                 show_pid: bool = False,
+                 show_fan_speed: bool = False,
                  show_codec="",
-                 show_power=None,
-                 gpuname_width=None,
-                 eol_char=os.linesep,
-                 term=None,
+                 show_power: Union[bool, str] = False,
+                 gpuname_width: Optional[int] = None,
+                 eol_char: str = os.linesep,
+                 term: Optional[Terminal] = None,
                  ):
         if term is None:
             term = Terminal(stream=sys.stdout)
@@ -199,7 +196,7 @@ class GPUStat(object):
                          error_value=term.bold_black):
             try:
                 return cond_fn() and true_value or false_value
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 return error_value
 
         _ENC_THRESHOLD = 50
@@ -207,12 +204,14 @@ class GPUStat(object):
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
         colors['CBold'] = term.bold
-        colors['CName'] = _conditional(lambda: self.available,
-                                       term.blue, term.red)
-        colors['CTemp'] = _conditional(lambda: self.temperature < 50,
-                                       term.red, term.bold_red)
-        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30,
-                                        term.cyan, term.bold_cyan)
+        colors['CName'] = _conditional(
+            lambda: self.available, term.blue, term.red)
+        colors['CTemp'] = _conditional(
+            lambda: self.temperature < 50,  # type: ignore[reportOptionalOperand]  # noqa: E501
+            term.red, term.bold_red)
+        colors['FSpeed'] = _conditional(
+            lambda: self.fan_speed < 30,  # type: ignore[reportOptionalOperand]  # noqa: E501
+            term.cyan, term.bold_cyan)
         colors['CMemU'] = _conditional(lambda: self.available,
                                        term.bold_yellow, term.bold_black)
         colors['CMemT'] = _conditional(lambda: self.available,
@@ -220,20 +219,21 @@ class GPUStat(object):
         colors['CMemP'] = term.yellow
         colors['CCPUMemU'] = term.yellow
         colors['CUser'] = term.bold_black   # gray
-        colors['CUtil'] = _conditional(lambda: self.utilization < 30,
-                                       term.green, term.bold_green)
+        colors['CUtil'] = _conditional(
+            lambda: self.utilization < 30,  # type: ignore[reportOptionalOperand]  # noqa: E501
+            term.green, term.bold_green)
         colors['CUtilEnc'] = _conditional(
-            lambda: self.utilization_enc < _ENC_THRESHOLD,
+            lambda: self.utilization_enc < _ENC_THRESHOLD,  # type: ignore[reportOptionalOperand]  # noqa: E501
             term.green, term.bold_green)
         colors['CUtilDec'] = _conditional(
-            lambda: self.utilization_dec < _ENC_THRESHOLD,
+            lambda: self.utilization_dec < _ENC_THRESHOLD,  # type: ignore[reportOptionalOperand]  # noqa: E501
             term.green, term.bold_green)
         colors['CCPUUtil'] = term.green
         colors['CPowU'] = _conditional(
             lambda: (self.power_limit is not None and
-                     float(self.power_draw) / self.power_limit < 0.4),
-            term.magenta, term.bold_magenta
-        )
+                     float(self.power_draw) / self.power_limit < 0.4  # type: ignore[reportOptionalOperand]  # noqa: E501
+                     ),
+            term.magenta, term.bold_magenta)
         colors['CPowL'] = term.magenta
         colors['CCmd'] = term.color(24)   # a bit dark
 
@@ -241,16 +241,16 @@ class GPUStat(object):
             for k in list(colors.keys()):
                 colors[k] = ''
 
-        def _repr(v, none_value='??'):
-            return none_value if v is None else v
+        def _repr(v, none_value: Any = '??') -> str:
+            return str(none_value) if v is None else v
 
         # build one-line display information
         # we want power use optional, but if deserves being grouped with
         # temperature and utilization
-        reps = u"%(C1)s[{entry[index]}]%(C0)s "
+        reps = "%(C1)s[{entry[index]}]%(C0)s "
         if gpuname_width is None or gpuname_width != 0:
-            reps += u"%(CName)s{entry_name:{gpuname_width}}%(C0)s |"
-        reps += u"%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
+            reps += "%(CName)s{entry_name:{gpuname_width}}%(C0)s |"
+        reps += "%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
 
         if show_fan_speed:
             reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
@@ -376,12 +376,12 @@ class InvalidGPU(GPUStat):
         return False
 
 
-class GPUStatCollection(object):
+class GPUStatCollection(Sequence[GPUStat]):
 
     global_processes = {}
 
-    def __init__(self, gpu_list, driver_version=None):
-        self.gpus = gpu_list
+    def __init__(self, gpu_list: Sequence[GPUStat], driver_version=None):
+        self.gpus = list(gpu_list)
 
         # attach additional system information
         self.hostname = platform.node()
@@ -395,7 +395,7 @@ class GPUStatCollection(object):
                 del GPUStatCollection.global_processes[pid]
 
     @staticmethod
-    def new_query(debug=False):
+    def new_query(debug=False) -> 'GPUStatCollection':
         """Query the information of all the GPUs on local machine"""
 
         N.nvmlInit()
@@ -607,7 +607,7 @@ class GPUStatCollection(object):
     def __iter__(self):
         return iter(self.gpus)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> GPUStat:
         return self.gpus[index]
 
     def __repr__(self):
@@ -619,13 +619,19 @@ class GPUStatCollection(object):
     # --- Printing Functions ---
 
     def print_formatted(self, fp=sys.stdout, *,
-                        force_color=False, no_color=False,
-                        show_cmd=False, show_full_cmd=False, show_user=False,
-                        show_pid=False, show_fan_speed=None,
-                        show_codec="", show_power=None,
-                        gpuname_width=None, show_header=True,
-                        no_processes=False,
-                        eol_char=os.linesep,
+                        force_color=False,
+                        no_color=False,
+                        show_cmd: bool = False,
+                        show_full_cmd: bool = False,
+                        show_user: bool = False,
+                        show_pid: bool = False,
+                        show_fan_speed: bool = False,
+                        show_codec="",
+                        show_power: Union[bool, str] = False,
+                        gpuname_width: Optional[int] = None,
+                        show_header: bool = True,
+                        no_processes: bool = False,
+                        eol_char: str = os.linesep,
                         ):
         # ANSI color configuration
         if force_color and no_color:
@@ -637,9 +643,10 @@ class GPUStatCollection(object):
             t_color = Terminal(kind=TERM, force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            t_color._normal = u'\x1b[0;10m'
+            # pylint: disable-next=protected-access
+            t_color._normal = '\x1b[0;10m'  # type: ignore
         elif no_color:
-            t_color = Terminal(force_styling=None)
+            t_color = Terminal(force_styling=False)
         else:
             t_color = Terminal()   # auto, depending on isatty
 
@@ -711,9 +718,8 @@ class GPUStatCollection(object):
         fp.flush()
 
 
-def new_query():
-    '''
-    Obtain a new GPUStatCollection instance by querying nvidia-smi
+def new_query() -> GPUStatCollection:
+    '''Obtain a new GPUStatCollection instance by querying nvidia-smi
     to get the list of GPUs and running process information.
     '''
     return GPUStatCollection.new_query()
