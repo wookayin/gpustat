@@ -15,6 +15,7 @@ Changelog for `gpustat`
 
 - Handle Lost GPU and Unknown Error situations (#81, #125)
 - Print a summary of the error message when an error happens.
+- Add Python 3.11 to CI.
 
 ### Bugfix
 

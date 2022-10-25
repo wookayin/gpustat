@@ -34,13 +34,17 @@ To install the latest version (master branch) via pip:
 pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
-Please note that starting from v1.0, gpustat will support [only Python 3.4+][gh-issue-66].
-For older versions (python 2.7, <3.4), you can continue using gpustat v0.x.
-
 
 ### NVIDIA Driver Requirements
 
 `gpustat` uses [NVIDIA's official python bindings for NVML library (pynvml)][pypi_pynvml]. As of now `gpustat` requires `nvidia-ml-py >= 11.450.129, <=11.495.46`, which is compatible with NVIDIA driver versions R450.00 or higher. Please upgrade the NVIDIA driver if `gpustat` fails to display process information. If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
+
+
+### Python requirements
+
+- gpustat<1.0: Compatible with python 2.7 and >=3.4
+- gpustat 1.0: [Python >= 3.4][gh-issue-66]
+- gpustat 1.1: Python >= 3.6
 
 
 Usage
