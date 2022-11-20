@@ -67,6 +67,7 @@ Options (Please see `gpustat --help` for more details):
 * `--no-processes`    : Do not display process information (user, memory)
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
 * `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
+* `--print-completion (bash|zsh|tcsh)` : Print a shell completion script. See [#131][gh-issue-131] for usage.
 
 
 ### Tips
@@ -90,6 +91,7 @@ Options (Please see `gpustat --help` for more details):
 [gh-issue-54]: https://github.com/wookayin/gpustat/issues/54
 [gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
 [gh-issue-107]: https://github.com/wookayin/gpustat/issues/107
+[gh-issue-131]: https://github.com/wookayin/gpustat/issues/131
 
 Default display
 ---------------

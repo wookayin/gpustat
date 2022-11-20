@@ -10,6 +10,7 @@ Changelog for `gpustat`
 ### New Feature
 
 - Add a new flag --no-processes to hide process information (#133)
+- Add shell completion via shtab (@Freed-Wu) (#131)
 
 ### Enhancements
 

@@ -1,7 +1,7 @@
-from contextlib import suppress
 import os
 import sys
 import time
+from contextlib import suppress
 
 from blessed import Terminal
 
@@ -9,7 +9,7 @@ from gpustat import __version__
 from gpustat.core import GPUStatCollection
 
 
-PREAMBLE = {
+SHTAB_PREAMBLE = {
     'zsh': '''\
 # % gpustat -i <TAB>
 # float
@@ -31,8 +31,8 @@ _complete_for_one_or_zero() {
 
 
 def zsh_choices_to_complete(choices, tag='', description=''):
-    '''
-    Change choices to complete for zsh.
+    '''Change choices to complete for zsh.
+
     https://github.com/zsh-users/zsh/blob/master/Etc/completion-style-guide#L224
     '''
     complete = 'compadd - ' + ' '.join(filter(len, choices))
@@ -44,9 +44,7 @@ def zsh_choices_to_complete(choices, tag='', description=''):
 
 
 def get_complete_for_one_or_zero(input):
-    '''
-    Get shell complete for nargs='?'. Now only support zsh.
-    '''
+    '''Get shell complete for nargs='?'. Now only support zsh.'''
     output = {}
     for sh, complete in input.items():
         if sh == 'zsh':
@@ -120,7 +118,7 @@ def main(*argv):
     except ImportError:
         from . import _shtab as shtab
     parser = argparse.ArgumentParser('gpustat')
-    shtab.add_argument_to(parser, preamble=PREAMBLE)
+    shtab.add_argument_to(parser, preamble=SHTAB_PREAMBLE)
 
     def nonnegative_int(value):
         value = int(value)
@@ -154,7 +152,7 @@ def main(*argv):
         '-e', '--show-codec', nargs='?', const='enc,dec', default='',
         choices=codec_choices,
         help='Show encoder/decoder utilization'
-    ).complete = get_complete_for_one_or_zero(
+    ).complete = get_complete_for_one_or_zero(  # type: ignore
         {'zsh': zsh_choices_to_complete(codec_choices, 'codec')}
     )
     power_choices = ['', 'draw', 'limit', 'draw,limit', 'limit,draw']
@@ -162,7 +160,7 @@ def main(*argv):
         '-P', '--show-power', nargs='?', const='draw,limit',
         choices=power_choices,
         help='Show GPU power usage or draw (and/or limit)'
-    ).complete = get_complete_for_one_or_zero(
+    ).complete = get_complete_for_one_or_zero(  # type: ignore
         {'zsh': zsh_choices_to_complete(power_choices, 'power')}
     )
     parser.add_argument('--json', action='store_true', default=False,
@@ -170,7 +168,7 @@ def main(*argv):
     parser.add_argument(
         '-i', '--interval', '--watch', nargs='?', type=float, default=0,
         help='Use watch mode if given; seconds to wait between updates'
-    ).complete = get_complete_for_one_or_zero({'zsh': '_numbers float'})
+    ).complete = get_complete_for_one_or_zero({'zsh': '_numbers float'})  # type: ignore
     parser.add_argument(
         '--no-header', dest='show_header', action='store_false', default=True,
         help='Suppress header message'
