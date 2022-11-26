@@ -46,6 +46,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e ".[test]"
+          python -m gpustat --version
 
       - name: Run tests
         run: |

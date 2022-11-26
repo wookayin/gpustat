@@ -1,3 +1,6 @@
+# managed by setuptools_scm
+gpustat/_version.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

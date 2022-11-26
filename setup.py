@@ -14,13 +14,15 @@ def read_readme():
 
 
 def read_version():
-    # importing gpustat causes an ImportError :-)
-    with open(os.path.join(__PATH__, 'gpustat/__init__.py')) as f:
-        version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                                  f.read(), re.M)
-    if version_match:
-        return version_match.group(1)
-    raise RuntimeError("Unable to find __version__ string")
+    try:
+        import setuptools_scm
+    except ImportError as ex:
+        raise ImportError(
+            "setuptools_scm not found. When running setup.py directly, "
+            "setuptools_scm needs to be installed manually. "
+            "Or consider running `pip install -e .` instead."
+        )
+    return setuptools_scm.get_version()
 
 
 __version__ = read_version()
