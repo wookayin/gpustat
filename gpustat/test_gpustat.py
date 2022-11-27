@@ -13,10 +13,10 @@ from io import StringIO
 
 import psutil
 import pytest
-from mockito import mock, unstub, when
+from mockito import mock, unstub, when, when2
 
 import gpustat
-from gpustat.nvml import pynvml
+from gpustat.nvml import pynvml, pynvml_monkeypatch
 
 MB = 1024 * 1024
 
@@ -46,8 +46,7 @@ def _configure_mock(N=pynvml,
     when(N).nvmlShutdown().thenReturn()
     when(N).nvmlSystemGetDriverVersion().thenReturn('415.27.mock')
 
-    when(N)._nvmlGetFunctionPointer('nvmlErrorString')\
-        .thenCallOriginalImplementation()
+    when(N)._nvmlGetFunctionPointer(...).thenCallOriginalImplementation()
 
     NUM_GPUS = 3
     mock_handles = [types.SimpleNamespace(value='mock-handle-%d' % i, index=i)
@@ -323,21 +322,24 @@ class NvidiaDriverMock:
                     return pynvml.NVML_ERROR_NOT_SUPPORTED
             return pynvml.NVML_SUCCESS
 
-        def _fn_notfound(*args, **kwargs):
-            return pynvml.NVML_ERROR_FUNCTION_NOT_FOUND
-
+        # Note: N._nvmlGetFunctionPointer might have been monkey-patched,
+        # so this mock should decorate the underlying, unwrapped raw function,
+        # NOT a monkey-patched version of pynvml._nvmlGetFunctionPointer.
         for v in [1, 2, 3]:
             _v = f'_v{v}' if v != 1 else ''   # backward compatible v3 -> v2
-            when(N) \
-            ._nvmlGetFunctionPointer(f'nvmlDeviceGetComputeRunningProcesses{_v}') \
-            .thenReturn(_nvmlDeviceGetComputeRunningProcesses_v2
-                        if v <= self.nvmlDeviceGetComputeRunningProcesses_v
-                        else _fn_notfound)
-            when(N) \
-            ._nvmlGetFunctionPointer(f'nvmlDeviceGetGraphicsRunningProcesses{_v}') \
-            .thenReturn(_nvmlDeviceGetGraphicsRunningProcesses_v2
-                        if v <= self.nvmlDeviceGetComputeRunningProcesses_v
-                        else _fn_notfound)
+            stub = when2(pynvml_monkeypatch.original_nvmlGetFunctionPointer,
+                         f'nvmlDeviceGetComputeRunningProcesses{_v}')
+            if v <= self.nvmlDeviceGetComputeRunningProcesses_v:
+                stub.thenReturn(_nvmlDeviceGetComputeRunningProcesses_v2)
+            else:
+                stub.thenRaise(pynvml.NVMLError(pynvml.NVML_ERROR_FUNCTION_NOT_FOUND))
+
+            stub = when2(pynvml_monkeypatch.original_nvmlGetFunctionPointer,
+                         f'nvmlDeviceGetGraphicsRunningProcesses{_v}')
+            if v <= self.nvmlDeviceGetComputeRunningProcesses_v:
+                stub.thenReturn(_nvmlDeviceGetGraphicsRunningProcesses_v2)
+            else:
+                stub.thenRaise(pynvml.NVMLError(pynvml.NVML_ERROR_FUNCTION_NOT_FOUND))
 
     def __getattr__(self, k):
         return self.feat[k]
