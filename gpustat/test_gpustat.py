@@ -13,7 +13,7 @@ from io import StringIO
 
 import psutil
 import pytest
-from mockito import mock, unstub, when, when2
+from mockito import mock, unstub, when, when2, ANY
 
 import gpustat
 from gpustat.nvml import pynvml, pynvml_monkeypatch
@@ -29,6 +29,8 @@ def remove_ansi_codes(s):
 
 # -----------------------------------------------------------------------------
 
+mock_gpu_handles = [types.SimpleNamespace(value='mock-handle-%d' % i, index=i)
+                    for i in range(3)]
 
 def _configure_mock(N=pynvml,
                     _scenario_nonexistent_pid=False,  # GH-95
@@ -49,8 +51,6 @@ def _configure_mock(N=pynvml,
     when(N)._nvmlGetFunctionPointer(...).thenCallOriginalImplementation()
 
     NUM_GPUS = 3
-    mock_handles = [types.SimpleNamespace(value='mock-handle-%d' % i, index=i)
-                    for i in range(3)]
     when(N).nvmlDeviceGetCount().thenReturn(NUM_GPUS)
 
     def _return_or_raise(v):
@@ -63,7 +63,7 @@ def _configure_mock(N=pynvml,
         return _callable
 
     for i in range(NUM_GPUS):
-        handle = mock_handles[i]
+        handle = mock_gpu_handles[i]
         if _scenario_failing_one_gpu and i == 2:  # see #81, #125
             assert (_scenario_failing_one_gpu is N.NVMLError_Unknown or
                     _scenario_failing_one_gpu is N.NVMLError_GpuIsLost)
@@ -99,13 +99,18 @@ def _configure_mock(N=pynvml,
                 0: 250000, 1: 250000, 2: N.NVMLError_NotSupported()
             }[i]))
 
-        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
+        # see also: NvidiaDriverMock
+        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])  # c_nvmlMemory_t
         when(N).nvmlDeviceGetMemoryInfo(handle)\
             .thenAnswer(_return_or_raise({
                 0: mock_memory_t(total=12883853312, used=8000*MB),
                 1: mock_memory_t(total=12781551616, used=9000*MB),
                 2: mock_memory_t(total=12781551616, used=0),
             }[i]))
+        # this mock function assumes <510.39 behavior (#141)
+        when(N, strict=False)\
+            .nvmlDeviceGetMemoryInfo(handle, version=ANY())\
+            .thenRaise(N.NVMLError_FunctionNotFound)
 
         mock_utilization_t = namedtuple("Utilization_t", ['gpu', 'memory'])
         when(N).nvmlDeviceGetUtilizationRates(handle)\
@@ -273,6 +278,7 @@ class NvidiaDriverMock:
 
     Relevant github issues:
         #107: nvmlDeviceGetComputeRunningProcesses_v2 added
+        #141: nvmlDeviceGetMemoryInfo (v1) broken for 510.39.01+
     """
     INSTANCES = []
 
@@ -281,6 +287,10 @@ class NvidiaDriverMock:
         self.feat = kwargs
 
     def __call__(self, N):
+        self.mock_processes(N)
+        self.mock_memoryinfo(N)
+
+    def mock_processes(self, N):
         when(N).nvmlDeviceGetComputeRunningProcesses(...).thenCallOriginalImplementation()
         when(N).nvmlDeviceGetGraphicsRunningProcesses(...).thenCallOriginalImplementation()
         when(N).nvmlSystemGetDriverVersion().thenReturn(self.name)
@@ -341,6 +351,57 @@ class NvidiaDriverMock:
             else:
                 stub.thenRaise(pynvml.NVMLError(pynvml.NVML_ERROR_FUNCTION_NOT_FOUND))
 
+    def mock_memoryinfo(self, N):
+        nvmlMemory_v2 = 0x02000028
+        if self.nvmlDeviceGetMemoryInfo_v == 1:
+            mock_memory_t = namedtuple(
+                "c_nvmlMemory_t",
+                ['total', 'used'],
+            )
+        elif self.nvmlDeviceGetMemoryInfo_v == 2:
+            mock_memory_t = namedtuple(
+                "c_nvmlMemory_v2_t",
+                ['version', 'total', 'reserved', 'free', 'used'],
+            )
+            mock_memory_t.__new__.__defaults__ = (nvmlMemory_v2, 0, 0, 0, 0)
+        else:
+            raise NotImplementedError
+
+        # simulates drivers >= 510.39, where memoryinfo v2 is introduced
+        if self.nvmlDeviceGetMemoryInfo_v == 2:
+            for handle in mock_gpu_handles:
+                # a correct API requires version=... parameter
+                # this assumes nvidia driver is also recent enough.
+                when(pynvml_monkeypatch, strict=False)\
+                    .original_nvmlDeviceGetMemoryInfo(handle, version=nvmlMemory_v2)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8000*MB),
+                        1: mock_memory_t(total=12781551616, used=9000*MB),
+                        2: mock_memory_t(total=12781551616, used=0),
+                    }[handle.index])
+                # simulate #141: without the v2 parameter, gives wrong result
+                when(pynvml_monkeypatch)\
+                    .original_nvmlDeviceGetMemoryInfo(handle)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8099*MB),
+                        1: mock_memory_t(total=12781551616, used=9099*MB),
+                        2: mock_memory_t(total=12781551616, used=99*MB),
+                    }[handle.index])
+
+        else:  # old drivers < 510.39
+            for handle in mock_gpu_handles:
+                # when pynvml>=11.510, v2 API can be called but can't be used
+                when(N, strict=False)\
+                    .nvmlDeviceGetMemoryInfo(handle, version=ANY())\
+                    .thenRaise(N.NVMLError_FunctionNotFound)
+                # The v1 API will give a correct result for the v1 API
+                when(N).nvmlDeviceGetMemoryInfo(handle)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8000*MB),
+                        1: mock_memory_t(total=12781551616, used=9000*MB),
+                        2: mock_memory_t(total=12781551616, used=0),
+                    }[handle.index])
+
     def __getattr__(self, k):
         return self.feat[k]
 
@@ -353,9 +414,18 @@ class NvidiaDriverMock:
 
 
 NvidiaDriverMock.INSTANCES = [
-    NvidiaDriverMock('430.xx.xx', nvmlDeviceGetComputeRunningProcesses_v=1),
-    NvidiaDriverMock('450.66', nvmlDeviceGetComputeRunningProcesses_v=2),
-    NvidiaDriverMock('510.39.01', nvmlDeviceGetComputeRunningProcesses_v=3),
+    NvidiaDriverMock('430.xx.xx',
+                     nvmlDeviceGetComputeRunningProcesses_v=1,
+                     nvmlDeviceGetMemoryInfo_v=1,
+                     ),
+    NvidiaDriverMock('450.66',
+                     nvmlDeviceGetComputeRunningProcesses_v=2,
+                     nvmlDeviceGetMemoryInfo_v=1,
+                     ),
+    NvidiaDriverMock('510.39.01',
+                     nvmlDeviceGetComputeRunningProcesses_v=3,
+                     nvmlDeviceGetMemoryInfo_v=2,
+                     ),
 ]
 
 

@@ -459,7 +459,9 @@ class GPUStatCollection(object):
                 fan_speed = None  # Not supported
 
             try:
-                memory = N.nvmlDeviceGetMemoryInfo(handle)  # in Bytes
+                # memory: in Bytes
+                # Note that this is a compat-patched API (see gpustat.nvml)
+                memory = N.nvmlDeviceGetMemoryInfo(handle)
             except N.NVMLError as e:
                 log.add_exception("memory", e)
                 memory = None  # Not supported
@@ -479,7 +481,7 @@ class GPUStatCollection(object):
             try:
                 utilization_dec = N.nvmlDeviceGetDecoderUtilization(handle)
             except N.NVMLError as e:
-                log.add_exception("utilization_dnc", e)
+                log.add_exception("utilization_dec", e)
                 utilization_dec = None  # Not supported
 
             try:
