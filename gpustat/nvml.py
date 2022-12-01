@@ -52,7 +52,7 @@ except (ImportError, SyntaxError, RuntimeError) as e:
 
 
 # Monkey-patch nvml due to breaking changes in pynvml.
-# See #107,  #141, and test_gpustat.py for more details.
+# See #107, #141, and test_gpustat.py for more details.
 
 _original_nvmlGetFunctionPointer = pynvml._nvmlGetFunctionPointer
 _original_nvmlDeviceGetMemoryInfo = pynvml.nvmlDeviceGetMemoryInfo
@@ -76,23 +76,21 @@ class pynvml_monkeypatch:
         """Our monkey-patched pynvml._nvmlGetFunctionPointer().
 
         See also:
-            test_gpustat::NvidiaDriverMock for test scenarios
+            test_gpustat::NvidiaDriverMock for test scenarios. See #107.
         """
+        M = pynvml_monkeypatch
 
         try:
-            ret = pynvml_monkeypatch.original_nvmlGetFunctionPointer(name)
+            ret = M.original_nvmlGetFunctionPointer(name)
             return ret
-        except pynvml.NVMLError as e:
-            if e.value != pynvml.NVML_ERROR_FUNCTION_NOT_FOUND:  # type: ignore
-                raise
-
-            if name in pynvml_monkeypatch.FUNCTION_FALLBACKS:
+        except pynvml.NVMLError_FunctionNotFound:  # type: ignore
+            if name in M.FUNCTION_FALLBACKS:
                 # Lack of ...Processes_v3 APIs happens for
                 # OLD drivers < 510.39.01 && pynvml >= 11.510, where
                 # we fallback to v2 APIs. (see #107 for more details)
 
-                ret = pynvml_monkeypatch.original_nvmlGetFunctionPointer(
-                    pynvml_monkeypatch.FUNCTION_FALLBACKS[name]
+                ret = M.original_nvmlGetFunctionPointer(
+                    M.FUNCTION_FALLBACKS[name]
                 )
                 # populate the cache, so this handler won't get executed again
                 pynvml._nvmlGetFunctionPointer_cache[name] = ret
@@ -118,28 +116,30 @@ class pynvml_monkeypatch:
         function is available (for driver >= 515), or fallback to the legacy
         v1 API for (driver < 515) to yield a correct result. See #141.
         """
-        if pynvml_monkeypatch.has_memoryinfo_v2 is not None:
+        M = pynvml_monkeypatch
+
+        if M.has_memoryinfo_v2 is not None:
             try:
                 pynvml._nvmlGetFunctionPointer("nvmlDeviceGetMemoryInfo_v2")
-                pynvml_monkeypatch.has_memoryinfo_v2 = True
+                M.has_memoryinfo_v2 = True
             except pynvml.NVMLError_FunctionNotFound:  # type: ignore
-                pynvml_monkeypatch.has_memoryinfo_v2 = False
+                M.has_memoryinfo_v2 = False
 
         if hasattr(pynvml, 'nvmlMemory_v2'):  # pynvml >= 11.510.69
             try:
-                memory = pynvml_monkeypatch.original_nvmlDeviceGetMemoryInfo(
+                memory = M.original_nvmlDeviceGetMemoryInfo(
                     handle, version=pynvml.nvmlMemory_v2)
             except pynvml.NVMLError_FunctionNotFound:  # type: ignore
                 # pynvml >= 11.510 but driver is old (<515.39)
-                memory = pynvml_monkeypatch.original_nvmlDeviceGetMemoryInfo(handle)
+                memory = M.original_nvmlDeviceGetMemoryInfo(handle)
         else:
-            if pynvml_monkeypatch.has_memoryinfo_v2:
+            if M.has_memoryinfo_v2:
                 warnings.warn(
                     "Your NVIDIA driver requires a compatible version of "
                     "pynvml (>= 11.510.69) installed to display the correct "
                     "memory usage information (See #141 for more details). "
                     "Please try `pip install --upgrade pynvml`.")
-            memory = pynvml_monkeypatch.original_nvmlDeviceGetMemoryInfo(handle)
+            memory = M.original_nvmlDeviceGetMemoryInfo(handle)
 
         return memory
 
