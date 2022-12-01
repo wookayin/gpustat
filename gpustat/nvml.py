@@ -138,7 +138,7 @@ class pynvml_monkeypatch:
                     "Your NVIDIA driver requires a compatible version of "
                     "pynvml (>= 11.510.69) installed to display the correct "
                     "memory usage information (See #141 for more details). "
-                    "Please try `pip install --upgrade pynvml`.",
+                    "Please try `pip install --upgrade nvidia-ml-py`.",
                     category=UserWarning)
             memory = M.original_nvmlDeviceGetMemoryInfo(handle)
 

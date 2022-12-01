@@ -17,11 +17,13 @@ Changelog for `gpustat`
 - Handle Lost GPU and Unknown Error situations (#81, #125)
 - Print a summary of the error message when an error happens.
 - Use setuptools-scm to auto-generate `__version__` string.
+- Relax `nvidia-ml-py` version requirement, allowing versions greater than 11.495 (#143)
 - Add Python 3.11 to CI.
 
 ### Bugfix
 
 - Fix afterimage texts when the number of processes changes in the watch mode (#100)
+- Fix incorrect memory usage information on nvidia drivers 510.39 or higher (#141)
 
 
 ## [v1.0][milestone-1.0] (2022/9/4)
