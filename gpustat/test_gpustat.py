@@ -3,6 +3,7 @@ Unit or integration tests for gpustat
 """
 # flake8: ignore=E501
 
+import ctypes
 import os
 import shlex
 import sys
@@ -12,10 +13,10 @@ from io import StringIO
 
 import psutil
 import pytest
-from mockito import mock, unstub, when
+from mockito import mock, unstub, when, when2, ANY
 
 import gpustat
-from gpustat.nvml import pynvml
+from gpustat.nvml import pynvml, pynvml_monkeypatch
 
 MB = 1024 * 1024
 
@@ -28,6 +29,8 @@ def remove_ansi_codes(s):
 
 # -----------------------------------------------------------------------------
 
+mock_gpu_handles = [types.SimpleNamespace(value='mock-handle-%d' % i, index=i)
+                    for i in range(3)]
 
 def _configure_mock(N=pynvml,
                     _scenario_nonexistent_pid=False,  # GH-95
@@ -39,13 +42,15 @@ def _configure_mock(N=pynvml,
     N.NVMLError.__hash__ = lambda _: 0
     assert issubclass(N.NVMLError, BaseException)
 
+    unstub(N)  # reset all the stubs
+
     when(N).nvmlInit().thenReturn()
     when(N).nvmlShutdown().thenReturn()
     when(N).nvmlSystemGetDriverVersion().thenReturn('415.27.mock')
 
+    when(N)._nvmlGetFunctionPointer(...).thenCallOriginalImplementation()
+
     NUM_GPUS = 3
-    mock_handles = [types.SimpleNamespace(value='mock-handle-%d' % i)
-                    for i in range(3)]
     when(N).nvmlDeviceGetCount().thenReturn(NUM_GPUS)
 
     def _return_or_raise(v):
@@ -58,7 +63,7 @@ def _configure_mock(N=pynvml,
         return _callable
 
     for i in range(NUM_GPUS):
-        handle = mock_handles[i]
+        handle = mock_gpu_handles[i]
         if _scenario_failing_one_gpu and i == 2:  # see #81, #125
             assert (_scenario_failing_one_gpu is N.NVMLError_Unknown or
                     _scenario_failing_one_gpu is N.NVMLError_GpuIsLost)
@@ -94,13 +99,18 @@ def _configure_mock(N=pynvml,
                 0: 250000, 1: 250000, 2: N.NVMLError_NotSupported()
             }[i]))
 
-        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
+        # see also: NvidiaDriverMock
+        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])  # c_nvmlMemory_t
         when(N).nvmlDeviceGetMemoryInfo(handle)\
             .thenAnswer(_return_or_raise({
                 0: mock_memory_t(total=12883853312, used=8000*MB),
                 1: mock_memory_t(total=12781551616, used=9000*MB),
                 2: mock_memory_t(total=12781551616, used=0),
             }[i]))
+        # this mock function assumes <510.39 behavior (#141)
+        when(N, strict=False)\
+            .nvmlDeviceGetMemoryInfo(handle, version=ANY())\
+            .thenRaise(N.NVMLError_FunctionNotFound)
 
         mock_utilization_t = namedtuple("Utilization_t", ['gpu', 'memory'])
         when(N).nvmlDeviceGetUtilizationRates(handle)\
@@ -133,6 +143,8 @@ def _configure_mock(N=pynvml,
             ]
         else:
             mock_processes_gpu2_erratic = N.NVMLError_NotSupported()
+
+        # see NvidiaDriverMock as well
         when(N).nvmlDeviceGetComputeRunningProcesses(handle)\
             .thenAnswer(_return_or_raise({
                 0: [mock_process_t(48448, 4000*MB), mock_process_t(153223, 4000*MB)],
@@ -213,6 +225,7 @@ MOCK_EXPECTED_OUTPUT_NO_PROCESSES = os.linesep.join("""\
 
 # -----------------------------------------------------------------------------
 
+
 @pytest.fixture
 def scenario_basic():
     _configure_mock()
@@ -224,7 +237,7 @@ def scenario_nonexistent_pid():
 
 
 @pytest.fixture
-def scenario_failing_one_gpu(request):
+def scenario_failing_one_gpu(request: pytest.FixtureRequest):
     # request.param should be either NVMLError_Unknown or NVMLError_GpuIsLost
     _configure_mock(_scenario_failing_one_gpu=request.param)
     return dict(expected_message={
@@ -234,8 +247,189 @@ def scenario_failing_one_gpu(request):
 
 
 @pytest.fixture
-def scenario_gpu_is_lost():
-    _configure_mock(_scenario_failing_one_gpu=pynvml.NVMLError_GpuIsLost)
+def nvidia_driver_version(request: pytest.FixtureRequest):
+    """See NvidiaDriverMock."""
+
+    nvidia_mock: NvidiaDriverMock = request.param
+    nvidia_mock(pynvml)
+
+    if nvidia_mock.name.startswith('430'):
+        # AssertionError: gpustat will print (Not Supported) in this case
+        request.node.add_marker(pytest.mark.xfail(
+            reason="nvmlDeviceGetComputeRunningProcesses_v2 does not exist"))
+
+    yield nvidia_mock
+
+
+class NvidiaDriverMock:
+    """Simulate the behavior of nvml's low-level functions according to a
+    specific nvidia driver versions, with backward compatibility in concern.
+    In all the scenarios, gpustat should work well with a compatible version
+    of pynvml installed.
+
+    For what has changed on the nvidia driver side (a non-exhaustive list), see
+    https://github.com/NVIDIA/nvidia-settings/blame/main/src/nvml.h
+    https://github.com/NVIDIA/nvidia-settings/blame/main/src/libXNVCtrlAttributes/NvCtrlAttributesPrivate.h
+
+    Noteworthy changes of nvml driviers:
+        450.66:    nvmlDeviceGetComputeRunningProcesses_v2
+        510.39.01: nvmlDeviceGetComputeRunningProcesses_v3  (_v2 removed)
+                   nvmlDeviceGetMemoryInfo_v2
+
+    Relevant github issues:
+        #107: nvmlDeviceGetComputeRunningProcesses_v2 added
+        #141: nvmlDeviceGetMemoryInfo (v1) broken for 510.39.01+
+    """
+    INSTANCES = []
+
+    def __init__(self, name, **kwargs):
+        self.name = name
+        self.feat = kwargs
+
+    def __call__(self, N):
+        self.mock_processes(N)
+        self.mock_memoryinfo(N)
+
+    def mock_processes(self, N):
+        when(N).nvmlDeviceGetComputeRunningProcesses(...).thenCallOriginalImplementation()
+        when(N).nvmlDeviceGetGraphicsRunningProcesses(...).thenCallOriginalImplementation()
+        when(N).nvmlSystemGetDriverVersion().thenReturn(self.name)
+
+        def process_t(pid, usedGpuMemory):
+            return pynvml.c_nvmlProcessInfo_t(
+                pid=ctypes.c_uint(pid),
+                usedGpuMemory=ctypes.c_ulonglong(usedGpuMemory),
+            )
+
+        # more low-level mocking for
+        # nvmlDeviceGetComputeRunningProcesses_{v2, v3} & c_nvmlProcessInfo_t
+        def _nvmlDeviceGetComputeRunningProcesses_v2(handle, c_count, c_procs):
+            # handle: SimpleNamespace (see _configure_mock)
+            if c_count._obj.value == 0:
+                return pynvml.NVML_ERROR_INSUFFICIENT_SIZE
+            else:
+                c_count._obj.value = 2
+                if handle.index == 0:
+                    c = process_t(pid=48448, usedGpuMemory=4000*MB); c_procs[0] = c
+                    c = process_t(pid=153223, usedGpuMemory=4000*MB); c_procs[1] = c
+                elif handle.index == 1:
+                    c = process_t(pid=192453, usedGpuMemory=3000*MB); c_procs[0] = c
+                    c = process_t(pid=194826, usedGpuMemory=6000*MB); c_procs[1] = c
+                else:
+                    return pynvml.NVML_ERROR_NOT_SUPPORTED
+            return pynvml.NVML_SUCCESS
+
+        def _nvmlDeviceGetGraphicsRunningProcesses_v2(handle, c_count, c_procs):
+            if c_count._obj.value == 0:
+                return pynvml.NVML_ERROR_INSUFFICIENT_SIZE
+            else:
+                if handle.index == 0:
+                    c_count._obj.value = 1
+                    c = process_t(pid=48448, usedGpuMemory=4000*MB); c_procs[0] = c
+                elif handle.index == 1:
+                    c_count._obj.value = 0
+                else:
+                    return pynvml.NVML_ERROR_NOT_SUPPORTED
+            return pynvml.NVML_SUCCESS
+
+        # Note: N._nvmlGetFunctionPointer might have been monkey-patched,
+        # so this mock should decorate the underlying, unwrapped raw function,
+        # NOT a monkey-patched version of pynvml._nvmlGetFunctionPointer.
+        for v in [1, 2, 3]:
+            _v = f'_v{v}' if v != 1 else ''   # backward compatible v3 -> v2
+            stub = when2(pynvml_monkeypatch.original_nvmlGetFunctionPointer,
+                         f'nvmlDeviceGetComputeRunningProcesses{_v}')
+            if v <= self.nvmlDeviceGetComputeRunningProcesses_v:
+                stub.thenReturn(_nvmlDeviceGetComputeRunningProcesses_v2)
+            else:
+                stub.thenRaise(pynvml.NVMLError(pynvml.NVML_ERROR_FUNCTION_NOT_FOUND))
+
+            stub = when2(pynvml_monkeypatch.original_nvmlGetFunctionPointer,
+                         f'nvmlDeviceGetGraphicsRunningProcesses{_v}')
+            if v <= self.nvmlDeviceGetComputeRunningProcesses_v:
+                stub.thenReturn(_nvmlDeviceGetGraphicsRunningProcesses_v2)
+            else:
+                stub.thenRaise(pynvml.NVMLError(pynvml.NVML_ERROR_FUNCTION_NOT_FOUND))
+
+    def mock_memoryinfo(self, N):
+        nvmlMemory_v2 = 0x02000028
+        if self.nvmlDeviceGetMemoryInfo_v == 1:
+            mock_memory_t = namedtuple(
+                "c_nvmlMemory_t",
+                ['total', 'used'],
+            )
+        elif self.nvmlDeviceGetMemoryInfo_v == 2:
+            mock_memory_t = namedtuple(
+                "c_nvmlMemory_v2_t",
+                ['version', 'total', 'reserved', 'free', 'used'],
+            )
+            mock_memory_t.__new__.__defaults__ = (nvmlMemory_v2, 0, 0, 0, 0)
+        else:
+            raise NotImplementedError
+
+        # simulates drivers >= 510.39, where memoryinfo v2 is introduced
+        if self.nvmlDeviceGetMemoryInfo_v == 2:
+            for handle in mock_gpu_handles:
+                # a correct API requires version=... parameter
+                # this assumes nvidia driver is also recent enough.
+                when(pynvml_monkeypatch, strict=False)\
+                    .original_nvmlDeviceGetMemoryInfo(handle, version=nvmlMemory_v2)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8000*MB),
+                        1: mock_memory_t(total=12781551616, used=9000*MB),
+                        2: mock_memory_t(total=12781551616, used=0),
+                    }[handle.index])
+                # simulate #141: without the v2 parameter, gives wrong result
+                when(pynvml_monkeypatch)\
+                    .original_nvmlDeviceGetMemoryInfo(handle)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8099*MB),
+                        1: mock_memory_t(total=12781551616, used=9099*MB),
+                        2: mock_memory_t(total=12781551616, used=99*MB),
+                    }[handle.index])
+
+        else:  # old drivers < 510.39
+            for handle in mock_gpu_handles:
+                # when pynvml>=11.510, v2 API can be called but can't be used
+                when(N, strict=False)\
+                    .nvmlDeviceGetMemoryInfo(handle, version=ANY())\
+                    .thenRaise(N.NVMLError_FunctionNotFound)
+                # The v1 API will give a correct result for the v1 API
+                when(N).nvmlDeviceGetMemoryInfo(handle)\
+                    .thenReturn({
+                        0: mock_memory_t(total=12883853312, used=8000*MB),
+                        1: mock_memory_t(total=12781551616, used=9000*MB),
+                        2: mock_memory_t(total=12781551616, used=0),
+                    }[handle.index])
+
+    def __getattr__(self, k):
+        return self.feat[k]
+
+    @property
+    def __name__(self):
+        return self.name
+
+    def __repr__(self):
+        return self.__name__
+
+
+NvidiaDriverMock.INSTANCES = [
+    NvidiaDriverMock('430.xx.xx',
+                     nvmlDeviceGetComputeRunningProcesses_v=1,
+                     nvmlDeviceGetMemoryInfo_v=1,
+                     ),
+    NvidiaDriverMock('450.66',
+                     nvmlDeviceGetComputeRunningProcesses_v=2,
+                     nvmlDeviceGetMemoryInfo_v=1,
+                     ),
+    NvidiaDriverMock('510.39.01',
+                     nvmlDeviceGetComputeRunningProcesses_v=3,
+                     nvmlDeviceGetMemoryInfo_v=2,
+                     ),
+]
+
+
+# -----------------------------------------------------------------------------
 
 
 class TestGPUStat(object):
@@ -264,10 +458,10 @@ class TestGPUStat(object):
 
     # -----------------------------------------------------------------------
 
-    def test_new_query_mocked(self, scenario_basic):
-        """
-        A basic functionality test, in a case where everything is just normal.
-        """
+    @pytest.mark.parametrize("nvidia_driver_version",
+                             NvidiaDriverMock.INSTANCES, indirect=True)
+    def test_new_query_mocked_basic(self, scenario_basic, nvidia_driver_version):
+        """A basic functionality test, in a case where everything is normal."""
 
         gpustats = gpustat.new_query()
         fp = StringIO()
@@ -285,6 +479,14 @@ class TestGPUStat(object):
         unescaped = os.linesep.join(unescaped.splitlines()[1:])
 
         assert unescaped == MOCK_EXPECTED_OUTPUT_FULL_PROCESS
+
+        # verify gpustat results (not exhaustive yet)
+        assert gpustats.driver_version == nvidia_driver_version.name
+        g: gpustat.GPUStat = gpustats.gpus[0]
+        assert g.memory_used == 8000
+        assert g.power_draw == 125
+        assert g.utilization == 76
+        assert g.processes and g.processes[0]['pid'] == 48448
 
     def test_new_query_mocked_nonexistent_pid(self, scenario_nonexistent_pid):
         """
@@ -330,7 +532,6 @@ class TestGPUStat(object):
         # other gpus should be displayed normally
         assert '[0] GeForce GTX TITAN 0' in lines[0]
         assert '[1] GeForce GTX TITAN 1' in lines[1]
-
 
     def test_attributes_and_items(self, scenario_basic):
         """Test whether each property of `GPUStat` instance is well-defined."""
