@@ -118,7 +118,7 @@ class pynvml_monkeypatch:
         """
         M = pynvml_monkeypatch
 
-        if M.has_memoryinfo_v2 is not None:
+        if M.has_memoryinfo_v2 is None:
             try:
                 pynvml._nvmlGetFunctionPointer("nvmlDeviceGetMemoryInfo_v2")
                 M.has_memoryinfo_v2 = True
@@ -138,7 +138,8 @@ class pynvml_monkeypatch:
                     "Your NVIDIA driver requires a compatible version of "
                     "pynvml (>= 11.510.69) installed to display the correct "
                     "memory usage information (See #141 for more details). "
-                    "Please try `pip install --upgrade pynvml`.")
+                    "Please try `pip install --upgrade pynvml`.",
+                    category=UserWarning)
             memory = M.original_nvmlDeviceGetMemoryInfo(handle)
 
         return memory
