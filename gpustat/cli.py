@@ -72,6 +72,8 @@ def print_gpustat(*, json=False, debug=False, **kwargs):
                 #   https://bugs.python.org/issue28603
                 # as a workaround, simply re-throw the exception
                 raise e
+
+        sys.stderr.flush()
         sys.exit(1)
 
     if json:
