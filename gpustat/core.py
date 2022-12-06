@@ -719,3 +719,26 @@ def new_query():
     to get the list of GPUs and running process information.
     '''
     return GPUStatCollection.new_query()
+
+
+def gpu_count() -> int:
+    '''
+    Return the number of GPUs in the system.
+    '''
+    try:
+        N.nvmlInit()
+        return N.nvmlDeviceGetCount()
+    except N.NVMLError:
+        return 0  # fallback
+    finally:
+        try:
+            N.nvmlShutdown()
+        except N.NVMLError:
+            pass
+
+
+def is_available() -> bool:
+    '''
+    Return True if the NVML library and GPU devices are available.
+    '''
+    return gpu_count() > 0
