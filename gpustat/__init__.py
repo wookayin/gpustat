@@ -14,13 +14,17 @@ except (ImportError, AttributeError) as ex:
     ) from ex
 
 from .core import GPUStat, GPUStatCollection
-from .core import new_query
+from .core import new_query, gpu_count, is_available
 from .cli import print_gpustat, main
 
 
 __all__ = (
     '__version__',
-    'GPUStat', 'GPUStatCollection',
+    'GPUStat',
+    'GPUStatCollection',
     'new_query',
-    'print_gpustat', 'main',
+    'gpu_count',
+    'is_available',
+    'print_gpustat',
+    'main',
 )
