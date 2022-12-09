@@ -409,19 +409,27 @@ class GPUStatCollection(object):
         def get_gpu_info(handle):
             """Get one GPU information specified by nvml handle"""
 
+            def safepcall(fn, error_value):
+                # Ignore the exception from psutil when the process is gone
+                # at the moment of querying. See #144.
+                return util.safecall(
+                    fn, error_value=error_value,
+                    exc_types=(psutil.AccessDenied, psutil.NoSuchProcess,
+                               FileNotFoundError))
+
             def get_process_info(nv_process):
                 """Get the process information of specific pid"""
                 process = {}
                 if nv_process.pid not in GPUStatCollection.global_processes:
                     GPUStatCollection.global_processes[nv_process.pid] = \
                         psutil.Process(pid=nv_process.pid)
-                ps_process = GPUStatCollection.global_processes[nv_process.pid]
+                ps_process: psutil.Process = GPUStatCollection.global_processes[nv_process.pid]
 
                 # TODO: ps_process is being cached, but the dict below is not.
-                process['username'] = ps_process.username()
+                process['username'] = safepcall(ps_process.username, '?')
                 # cmdline returns full path;
                 # as in `ps -o comm`, get short cmdnames.
-                _cmdline = ps_process.cmdline()
+                _cmdline = safepcall(ps_process.cmdline, [])
                 if not _cmdline:
                     # sometimes, zombie or unknown (e.g. [kworker/8:2H])
                     process['command'] = '?'
@@ -434,10 +442,13 @@ class GPUStatCollection(object):
                 usedmem = nv_process.usedGpuMemory // MB if \
                           nv_process.usedGpuMemory else None
                 process['gpu_memory_usage'] = usedmem
-                process['cpu_percent'] = ps_process.cpu_percent()
-                process['cpu_memory_usage'] = \
-                    round((ps_process.memory_percent() / 100.0) *
-                          psutil.virtual_memory().total)
+
+                process['cpu_percent'] = safepcall(ps_process.cpu_percent, 0.0)
+                process['cpu_memory_usage'] = safepcall(
+                    lambda: round((ps_process.memory_percent() / 100.0) *
+                                  psutil.virtual_memory().total),
+                    0.0)
+
                 process['pid'] = nv_process.pid
                 return process
 
@@ -543,8 +554,8 @@ class GPUStatCollection(object):
                 time.sleep(0.1)
                 for process in processes:
                     pid = process['pid']
-                    cache_process = GPUStatCollection.global_processes[pid]
-                    process['cpu_percent'] = cache_process.cpu_percent()
+                    cache_process: psutil.Process = GPUStatCollection.global_processes[pid]
+                    process['cpu_percent'] = safepcall(cache_process.cpu_percent, 0)
 
             index = N.nvmlDeviceGetIndex(handle)
 

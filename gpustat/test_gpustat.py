@@ -10,10 +10,11 @@ import sys
 import types
 from collections import namedtuple
 from io import StringIO
+from typing import Any
 
 import psutil
 import pytest
-from mockito import mock, unstub, when, when2, ANY
+from mockito import ANY, mock, unstub, when, when2
 
 import gpustat
 from gpustat.nvml import pynvml, pynvml_monkeypatch
@@ -181,7 +182,7 @@ def _configure_mock(N=pynvml,
                 # type of exceptions supposed to be raised by psutil
                 raise psutil.NoSuchProcess(pid=pid)
         username, cmdline, cpuutil, memutil = mock_pid_map[pid]
-        p = mock(strict=True)
+        p: Any = mock(strict=True)   # psutil.Process
         p.username = lambda: username
         p.cmdline = lambda: [cmdline]
         p.cpu_percent = lambda: cpuutil
