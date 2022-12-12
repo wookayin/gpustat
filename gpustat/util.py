@@ -1,9 +1,12 @@
 """ Miscellaneous Utilities. """
 
-import sys
-import os.path
-import traceback
 import collections
+import os.path
+import sys
+import traceback
+from typing import Callable, Tuple, Type, TypeVar, Union
+
+T = TypeVar('T')
 
 
 def bytes2human(in_bytes):
@@ -59,6 +62,17 @@ def shorten_left(text, width, placeholder="…"):
     return placeholder + text[-(width - len(placeholder)):]
 
 
+def safecall(fn: Callable[[], T],
+             *,
+             exc_types: Union[Type, Tuple[Type, ...]] = Exception,
+             error_value: T) -> T:
+    """A protected call that suppress certain types of exceptions."""
+    try:
+        return fn()
+    except exc_types:  # pylint: disable=broad-except
+        return error_value
+
+
 class DebugHelper:
 
     def __init__(self):
@@ -78,7 +92,8 @@ class DebugHelper:
         for msg, e in self._reports:
             if msg not in _seen_messages or not concise:
                 self._write(msg)
-                self._write(''.join(traceback.format_exception(None, e, e.__traceback__)))
+                self._write(''.join(
+                    traceback.format_exception(None, e, e.__traceback__)))
             _seen_messages[msg] += 1
 
         if concise:
