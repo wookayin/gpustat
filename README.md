@@ -64,9 +64,9 @@ Options (Please see `gpustat --help` for more details):
 * `-e`, `--show-codec` : Display encoder and/or decoder utilization
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `-a`, `--show-all`   : Display all gpu properties above
-* `--no-processes`    : Do not display process information (user, memory)
-* `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates. ([#41][gh-issue-41])
-* `--json`             : JSON Output (Experimental, [#10][gh-issue-10])
+* `--no-processes`    : Do not display process information (user, memory) ([#133][gh-issue-133])
+* `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates.
+* `--json`             : JSON Output ([#10][gh-issue-10])
 * `--print-completion (bash|zsh|tcsh)` : Print a shell completion script. See [#131][gh-issue-131] for usage.
 
 
@@ -92,6 +92,7 @@ Options (Please see `gpustat --help` for more details):
 [gh-issue-66]: https://github.com/wookayin/gpustat/issues/66
 [gh-issue-107]: https://github.com/wookayin/gpustat/issues/107
 [gh-issue-131]: https://github.com/wookayin/gpustat/issues/131
+[gh-issue-133]: https://github.com/wookayin/gpustat/issues/133
 
 Default display
 ---------------
