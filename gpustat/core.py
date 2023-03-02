@@ -743,9 +743,7 @@ def new_query() -> GPUStatCollection:
 
 
 def gpu_count() -> int:
-    '''
-    Return the number of GPUs in the system.
-    '''
+    '''Return the number of available GPUs in the system.'''
     try:
         N.nvmlInit()
         return N.nvmlDeviceGetCount()
@@ -759,7 +757,5 @@ def gpu_count() -> int:
 
 
 def is_available() -> bool:
-    '''
-    Return True if the NVML library and GPU devices are available.
-    '''
+    '''Return True if the NVML library and GPU devices are available.'''
     return gpu_count() > 0
