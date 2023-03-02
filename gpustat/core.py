@@ -377,7 +377,7 @@ class InvalidGPU(GPUStat):
         return False
 
 
-class GPUStatCollection(object):
+class GPUStatCollection(Sequence[GPUStat]):
 
     global_processes = {}
 
@@ -396,7 +396,7 @@ class GPUStatCollection(object):
                 del GPUStatCollection.global_processes[pid]
 
     @staticmethod
-    def new_query(debug=False, id=None):
+    def new_query(debug=False, id=None) -> 'GPUStatCollection':
         """Query the information of all the GPUs on local machine"""
 
         N.nvmlInit()
@@ -734,7 +734,7 @@ class GPUStatCollection(object):
         fp.flush()
 
 
-def new_query():
+def new_query() -> GPUStatCollection:
     '''
     Obtain a new GPUStatCollection instance by querying nvidia-smi
     to get the list of GPUs and running process information.
