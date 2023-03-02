@@ -9,7 +9,8 @@ Changelog for `gpustat`
 
 ### New Feature
 
-- Add a new flag --no-processes to hide process information (#133)
+- Add a new flag `--no-processes` to hide process information (#133)
+- Add a new flag `--id` to query specific GPUs only (#125)
 - Add shell completion via shtab (@Freed-Wu) (#131)
 
 ### Enhancements

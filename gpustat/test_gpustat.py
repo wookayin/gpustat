@@ -598,6 +598,10 @@ class TestGPUStat(object):
         s = capture_output('gpustat', '--no-processes')
         assert _remove_ansi_codes_and_header_line(s) == MOCK_EXPECTED_OUTPUT_NO_PROCESSES
 
+        s = capture_output('gpustat', '--id', '1,2')
+        assert _remove_ansi_codes_and_header_line(s) == \
+            os.linesep.join(MOCK_EXPECTED_OUTPUT_DEFAULT.splitlines()[1:3])
+
     def test_args_commandline_width(self, scenario_basic):
         capture_output = self.capture_output
 

@@ -7,6 +7,7 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
+from typing import Sequence
 import json
 import locale
 import os.path
@@ -395,7 +396,7 @@ class GPUStatCollection(object):
                 del GPUStatCollection.global_processes[pid]
 
     @staticmethod
-    def new_query(debug=False):
+    def new_query(debug=False, id=None):
         """Query the information of all the GPUs on local machine"""
 
         N.nvmlInit()
@@ -587,7 +588,16 @@ class GPUStatCollection(object):
         gpu_list = []
         device_count = N.nvmlDeviceGetCount()
 
-        for index in range(device_count):
+        if id is None:
+            gpus_to_query = range(device_count)
+        elif isinstance(id, str):
+            gpus_to_query = [int(i) for i in id.split(',')]
+        elif isinstance(id, Sequence):
+            gpus_to_query = [int(i) for i in id]
+        else:
+            raise TypeError(f"Unknown id: {id}")
+
+        for index in gpus_to_query:
             try:
                 handle = N.nvmlDeviceGetHandleByIndex(index)
                 gpu_info = get_gpu_info(handle)
