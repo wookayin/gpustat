@@ -1,7 +1,7 @@
 Changelog for `gpustat`
 =======================
 
-## [v1.1][milestone-1.1] (2023/3/2)
+## [v1.1][milestone-1.1] (2023/3/3)
 
 [milestone-1.1]: https://github.com/wookayin/gpustat/milestone/5
 
@@ -30,6 +30,7 @@ Note: Python minimum version is raised to 3.6+ (compatible with Ubuntu 20.04 LTS
 - Fix incorrect memory usage information on nvidia drivers 510.39 or higher (#141)
 - Fix occasional crash when psutil throws error on reading cpu_percent (#144)
 - Fix afterimage texts when the number of processes changes in the watch mode (#100)
+- Make gpustat not crash even when there are 0 number of GPUs
 
 
 ## [v1.0][milestone-1.0] (2022/9/4)

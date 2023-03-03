@@ -668,7 +668,7 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         # appearance settings
         if gpuname_width is None:
-            gpuname_width = max([len(g.entry['name']) for g in self])
+            gpuname_width = max([len(g.entry['name']) for g in self] + [0])
 
         # header
         if show_header:
@@ -709,6 +709,9 @@ class GPUStatCollection(Sequence[GPUStat]):
                        eol_char=eol_char,
                        term=t_color)
             fp.write(eol_char)
+
+        if len(self.gpus) == 0:
+            print(t_color.yellow("(No GPUs are available)"))
 
         fp.flush()
 
