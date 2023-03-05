@@ -22,10 +22,20 @@ def read_version():
             "setuptools_scm needs to be installed manually. "
             "Or consider running `pip install -e .` instead."
         )
-    return setuptools_scm.get_version()
+    version = setuptools_scm.get_version()
+    setuptools_scm.dump_version(root=__PATH__, version=version,
+                                write_to='gpustat/_version.py')
+    return version
 
 
-__version__ = read_version()
+if os.getenv("GPUSTAT_VERSION"):
+    # release process, e.g. GPUSTAT_VERSION="1.1" python setup.py sdist
+    __version__ = os.environ["GPUSTAT_VERSION"]
+else:
+    # Let dev version auto-generated from git tags, or
+    # grab the version information from PKG-INFO for source distribution
+    __version__ = read_version()
+
 
 
 # brought from https://github.com/kennethreitz/setup.py
@@ -62,7 +72,8 @@ class DeployCommand(Command):
             pass
 
         self.status('Building Source and Wheel (universal) distribution ...')
-        os.system('{0} setup.py sdist'.format(sys.executable))
+        os.system("GPUSTAT_VERSION='{}' sh -c '{} setup.py sdist'".format(
+            __version__, sys.executable))
 
         self.status('Uploading the package to PyPI via Twine ...')
         ret = os.system('twine upload dist/*')
