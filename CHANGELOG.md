@@ -1,28 +1,28 @@
 Changelog for `gpustat`
 =======================
 
-## [v1.1][milestone-1.1] (2023/3/3)
+## [v1.1][milestone-1.1] (2023/3/5)
 
 [milestone-1.1]: https://github.com/wookayin/gpustat/milestone/5
 
 Bugfixes for better stability and introduces a few minor features.
-Most importantly, nvidia-ml-py version requirement is relaxed to be compatible with modern NVIDIA GPUs.
+Importantly, nvidia-ml-py version requirement is relaxed to be compatible with modern NVIDIA GPUs.
 
 Note: Python minimum version is raised to 3.6+ (compatible with Ubuntu 20.04 LTS).
 
 ### New Feature
 
-- Add a new flag `--no-processes` to hide process information (#133)
+- Add a new flag `--no-processes` to hide process information (@doncamilom) (#133)
 - Add a new flag `--id` to query specific GPUs only (#125)
 - Add shell completion via shtab (@Freed-Wu) (#131)
 - Add error-safe APIs `gpustat.gpu_count()` and `gpustat.is_available()` (#145)
 
 ### Enhancements
 
+- Relax `nvidia-ml-py` version requirement, allowing versions greater than 11.495 (#143)
 - Handle Lost GPU and Unknown Error situations (#81, #125)
 - Print a summary of the error message when an error happens (#142)
 - Use setuptools-scm to auto-generate `__version__` string.
-- Relax `nvidia-ml-py` version requirement, allowing versions greater than 11.495 (#143)
 - Add Python 3.11 to CI.
 
 ### Bugfix
