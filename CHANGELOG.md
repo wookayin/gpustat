@@ -1,7 +1,7 @@
 Changelog for `gpustat`
 =======================
 
-## [v1.1][milestone-1.1] (2023/3/5)
+## [v1.1][milestone-1.1] (2023/4/5)
 
 [milestone-1.1]: https://github.com/wookayin/gpustat/milestone/5
 
