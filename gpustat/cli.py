@@ -6,6 +6,7 @@ from contextlib import suppress
 from blessed import Terminal
 
 from gpustat import __version__
+from gpustat.config import PrintConfig
 from gpustat.core import GPUStatCollection
 
 
@@ -52,7 +53,7 @@ def get_complete_for_one_or_zero(input):
     return output
 
 
-def print_gpustat(*, id=None, json=False, debug=False, **kwargs):
+def print_gpustat(*, id=None, json=False, debug=False, config=None, **kwargs):
     '''Display the GPU query results into standard output.'''
     try:
         gpu_stats = GPUStatCollection.new_query(debug=debug, id=id)
@@ -76,7 +77,9 @@ def print_gpustat(*, id=None, json=False, debug=False, **kwargs):
         sys.stderr.flush()
         sys.exit(1)
 
-    if json:
+    if config is not None:
+        gpu_stats.print_from_config(config, sys.stdout)
+    elif json:
         gpu_stats.print_json(sys.stdout)
     else:
         gpu_stats.print_formatted(sys.stdout, **kwargs)
@@ -189,7 +192,12 @@ def main(*argv):
     )
     parser.add_argument('-v', '--version', action='version',
                         version=('gpustat %s' % __version__))
+    parser.add_argument('--config', default=None, const=True, nargs="?")
     args = parser.parse_args(argv[1:])
+
+
+    if args.config is not None:
+        args.config = PrintConfig()
     # TypeError: GPUStatCollection.print_formatted() got an unexpected keyword argument 'print_completion'
     with suppress(AttributeError):
         del args.print_completion  # type: ignore
