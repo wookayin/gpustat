@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, fields
 from typing import Dict, Literal, Optional, TypeVar, Union
 
 from blessed import Terminal
-from omegaconf import OmegaConf
+# from omegaconf import OmegaConf
 
 
 @dataclass
@@ -153,5 +153,5 @@ class PrintConfig:
         cp.font_modifiers.to_term(terminal)
         return cp
 
-    def to_yaml(self) -> str:
-        return OmegaConf.to_yaml(self)
+    # def to_yaml(self) -> str:
+    #     return OmegaConf.to_yaml(self)

@@ -7,7 +7,7 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
-from typing import Any, Dict, Sequence, TypeVar
+from typing import Sequence, TypeVar
 import json
 import locale
 import os.path
@@ -19,12 +19,10 @@ from io import StringIO
 
 import psutil
 from blessed import Terminal
-from gpustat.config import PrintConfig
 
 import gpustat.util as util
+from gpustat.config import PrintConfig
 from gpustat.nvml import pynvml as N
-
-from pprint import pprint
 
 
 NOT_SUPPORTED = 'Not Supported'
@@ -783,7 +781,7 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         # Gathering the info
         vars = self.jsonify()
-        vars: dict = recursive_replace(vars)
+        vars = recursive_replace(vars)
         if IS_WINDOWS:
             # no localization is available; just use a reasonable default
             # same as str(timestr) but without ms
