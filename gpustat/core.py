@@ -32,7 +32,7 @@ DEFAULT_GPUNAME_WIDTH = 16
 IS_WINDOWS = 'windows' in platform.platform().lower()
 
 
-class GPUStat(object):
+class GPUStat:
 
     def __init__(self, entry):
         if not isinstance(entry, dict):
@@ -660,7 +660,7 @@ class GPUStatCollection(Sequence[GPUStat]):
             t_color = Terminal(kind=TERM, force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            t_color._normal = u'\x1b[0;10m'
+            t_color._normal = '\x1b[0;10m'
         elif no_color:
             t_color = Terminal(force_styling=None)
         else:
