@@ -2,9 +2,12 @@
 Unit or integration tests for gpustat
 """
 # flake8: ignore=E501
+# pyright: reportGeneralTypeIssues=false
+# pylint: disable=protected-access,no-member
 
 import ctypes
 import os
+import re
 import shlex
 import sys
 import types
@@ -23,7 +26,6 @@ MB = 1024 * 1024
 
 
 def remove_ansi_codes(s):
-    import re
     s = re.compile(r'\x1b[^m]*m').sub('', s)
     s = re.compile(r'\x0f').sub('', s)
     return s
@@ -63,6 +65,8 @@ def _configure_mock(N=pynvml,
             return v
         return _callable
 
+    mock_memory_t = namedtuple("Memory_t", ['total', 'used'])  # c_nvmlMemory_t
+
     for i in range(NUM_GPUS):
         handle = mock_gpu_handles[i]
         if _scenario_failing_one_gpu and i == 2:  # see #81, #125
@@ -101,7 +105,6 @@ def _configure_mock(N=pynvml,
             }[i]))
 
         # see also: NvidiaDriverMock
-        mock_memory_t = namedtuple("Memory_t", ['total', 'used'])  # c_nvmlMemory_t
         when(N).nvmlDeviceGetMemoryInfo(handle)\
             .thenAnswer(_return_or_raise({
                 0: mock_memory_t(total=12883853312, used=8000*MB),
