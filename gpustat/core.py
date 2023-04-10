@@ -7,7 +7,7 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
-from typing import Sequence
+from typing import Sequence, TypeVar
 import json
 import locale
 import os.path
@@ -21,6 +21,7 @@ import psutil
 from blessed import Terminal
 
 import gpustat.util as util
+from gpustat.config import PrintConfig
 from gpustat.nvml import pynvml as N
 
 
@@ -30,6 +31,17 @@ MB = 1024 * 1024
 DEFAULT_GPUNAME_WIDTH = 16
 
 IS_WINDOWS = 'windows' in platform.platform().lower()
+
+T = TypeVar("T")
+def recursive_replace(input: T) -> T:
+    """Replaces . (dots) in all keys with _ (underscores). Expects json-type
+    input and returns json-type output"""
+    if isinstance(input, list):
+        return [recursive_replace(x) for x in input]
+    elif isinstance(input, dict):
+        return {key.replace(".", "_"): recursive_replace(val) for key, val in input.items()}
+    else:
+        return input
 
 
 class GPUStat:
@@ -736,6 +748,72 @@ class GPUStatCollection(Sequence[GPUStat]):
         fp.write(os.linesep)
         fp.flush()
 
+    def print_from_config(self, config: PrintConfig, fp=sys.stdout,
+                          *, eol_char: str=os.linesep):
+        # ANSI color configuration
+        if config.use_color:
+            TERM = os.getenv('TERM') or 'xterm-256color'
+            t_color = Terminal(kind=TERM, force_styling=True)
+
+            # workaround of issue #32 (watch doesn't recognize sgr0 characters)
+            t_color._normal = u'\x1b[0;10m'
+        elif config.use_color is not None: # <=> is set to false
+            t_color = Terminal(force_styling=None)
+        else:
+            t_color = Terminal() # auto, depending on isatty
+        config = config.to_term(t_color)
+        assert config.header is not None
+        assert config.gpus is not None
+        assert config.process is not None
+
+        # appearance settings
+        if config.gpuname_width is None:
+            if len(self) > 0:
+                config.gpuname_width = max(len(g.entry['name']) for g in self)
+            else:
+                config.gpuname_width = 0
+        extra = {
+            "t": t_color,
+            "c": config.extra_colors,
+            "width": config.gpuname_width,
+            "empty": "",
+        }
+
+        # Gathering the info
+        vars = self.jsonify()
+        vars = recursive_replace(vars)
+        if IS_WINDOWS:
+            # no localization is available; just use a reasonable default
+            # same as str(timestr) but without ms
+            timestr = self.query_time.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            time_format = locale.nl_langinfo(locale.D_T_FMT)
+            timestr = self.query_time.strftime(time_format)
+        vars["query_time"] = timestr
+
+        # Actually building the output
+        gpu_info: list[str] = []
+        for gpu in vars["gpus"]:
+            processes = []
+            for p in gpu["processes"]:
+                processes.append(config.process.format(
+                    mods=config.font_modifiers.gpu_font_modifiers.processes_font_modifiers,
+                    **p, **extra,
+                ))
+            gpu["processes"] = config.processes_sep.join(processes)
+            gpu_info.append(config.gpus.format(
+                mods=config.font_modifiers.gpu_font_modifiers,
+                **gpu, **extra,
+            ))
+        vars["gpus"] = config.gpu_sep.join(gpu_info)
+        complete = config.header.format(
+            mods=config.font_modifiers,
+            **vars, **extra,
+        )
+
+        fp.write(complete.strip())
+        fp.write(eol_char)
+        fp.flush()
 
 def new_query() -> GPUStatCollection:
     '''
