@@ -9,7 +9,7 @@ Implementation of gpustat
 
 import functools
 from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
-                    Optional, Sequence, Union)
+                    Optional, Sequence, Union, cast)
 
 try:
     from typing_extensions import TypedDict
@@ -230,22 +230,15 @@ class GPUStat:
 
         colors['C0'] = term.normal
         colors['C1'] = term.cyan
-        colors['CBold'] = term.bold
-        colors['CName'] = _conditional(lambda: self.available,
-                                       term.blue, term.red)
-        colors['CTemp'] = _conditional(lambda: self.temperature < 50,
-                                       term.red, term.bold_red)
-        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30,
-                                        term.cyan, term.bold_cyan)
-        colors['CMemU'] = _conditional(lambda: self.available,
-                                       term.bold_yellow, term.bold_black)
-        colors['CMemT'] = _conditional(lambda: self.available,
-                                       term.yellow, term.bold_black)
+        colors['CName'] = _conditional(lambda: self.available, term.blue, term.red)
+        colors['CTemp'] = _conditional(lambda: self.temperature < 50, term.red, term.bold_red)
+        colors['FSpeed'] = _conditional(lambda: self.fan_speed < 30, term.cyan, term.bold_cyan)
+        colors['CMemU'] = _conditional(lambda: self.available, term.bold_yellow, term.bold_black)
+        colors['CMemT'] = _conditional(lambda: self.available, term.yellow, term.bold_black)
         colors['CMemP'] = term.yellow
         colors['CCPUMemU'] = term.yellow
         colors['CUser'] = term.bold_black   # gray
-        colors['CUtil'] = _conditional(lambda: self.utilization < 30,
-                                       term.green, term.bold_green)
+        colors['CUtil'] = _conditional(lambda: self.utilization < 30, term.green, term.bold_green)
         colors['CUtilEnc'] = _conditional(
             lambda: self.utilization_enc < _ENC_THRESHOLD,
             term.green, term.bold_green)
@@ -271,56 +264,80 @@ class GPUStat:
         # build one-line display information
         # we want power use optional, but if deserves being grouped with
         # temperature and utilization
-        reps = u"%(C1)s[{entry[index]}]%(C0)s "
+
+        reps = []
+        def _write(*args, color=None, end=''):
+            args = [str(x) for x in args]
+            if color:
+                if color in colors:
+                    color = colors[color]
+                args = [color] + args + [term.normal]
+            if end:
+                args.append(end)
+            reps.extend(args)
+
+        def rjustify(x, size):
+            return f"{x:>{size}}"
+
+        # Null-safe property accessor like self.xxxx,
+        # but fall backs to '?' for None or missing values
+        class SafePropertyAccessor:
+            def __init__(self):
+                pass
+            def __getattr__(_, name):  # type: ignore
+                try:
+                    v = getattr(self, name)
+                    return v if v is not None else '??'
+                except TypeError:  # possibly int(None), etc.
+                    return '??'
+
+        safe_self = cast(GPUStat, SafePropertyAccessor())
+
+        _write(f"[{self.index}]", color=term.cyan)
+        _write(" ")
+
         if gpuname_width is None or gpuname_width != 0:
-            reps += u"%(CName)s{entry_name:{gpuname_width}}%(C0)s |"
-        reps += u"%(CTemp)s{entry[temperature.gpu]:>3}°C%(C0)s, "
+            gpuname_width = gpuname_width or DEFAULT_GPUNAME_WIDTH
+            _write(f"{util.shorten_left(self.name, width=gpuname_width, placeholder='…'):{gpuname_width}}",
+                   color='CName')
+            _write(" |")
+
+        _write(rjustify(safe_self.temperature, 3), "°C", color='CTemp', end=', ')
 
         if show_fan_speed:
-            reps += "%(FSpeed)s{entry[fan.speed]:>3} %%%(C0)s, "
+            _write(rjustify(safe_self.fan_speed, 3), " %", color='FSpeed', end=', ')
 
-        reps += "%(CUtil)s{entry[utilization.gpu]:>3} %%%(C0)s"
+        _write(rjustify(safe_self.utilization, 3), " %", color='CUtil')
 
         if show_codec:
-            codec_info = []
+            _write(" (")
+            _sep = ''
             if "enc" in show_codec:
-                codec_info.append(
-                    "%(CBold)sE: %(C0)s"
-                    "%(CUtilEnc)s{entry[utilization.enc]:>3} %%%(C0)s")
+                _write("E: ", color=term.bold)
+                _write(rjustify(safe_self.utilization_enc, 3), " %", color='CUtilEnc')
+                _sep = '  '  # TODO comma?
             if "dec" in show_codec:
-                codec_info.append(
-                    "%(CBold)sD: %(C0)s"
-                    "%(CUtilDec)s{entry[utilization.dec]:>3} %%%(C0)s")
-            reps += " ({})".format("  ".join(codec_info))
+                _write(_sep, "D: ", color=term.bold)
+                _write(rjustify(safe_self.utilization_dec, 3), " %", color='CUtilDec')
+            _write(")")
 
         if show_power:
-            reps += ",  %(CPowU)s{entry[power.draw]:>3}%(C0)s "
+            _write(",  ")
+            _write(rjustify(safe_self.power_draw, 3), color='CPowU')
             if show_power is True or 'limit' in show_power:
-                reps += "/ %(CPowL)s{entry[enforced.power.limit]:>3}%(C0)s "
-                reps += "%(CPowL)sW%(C0)s"
-            else:
-                reps += "%(CPowU)sW%(C0)s"
+                _write(" / ")
+                _write(rjustify(safe_self.power_limit, 3), ' W', color='CPowL')
 
-        reps += " | %(C1)s%(CMemU)s{entry[memory.used]:>5}%(C0)s " \
-            "/ %(CMemT)s{entry[memory.total]:>5}%(C0)s MB"
-        reps = (reps) % colors
-
-        class entry_repr_accessor:
-            def __init__(self, entry):
-                self.entry = entry
-            def __getitem__(self, key):
-                return _repr(self.entry[key])
-
-        reps = reps.format(
-            entry=entry_repr_accessor(self.entry),
-            entry_name=util.shorten_left(
-                self.entry["name"], width=gpuname_width, placeholder='…'),
-            gpuname_width=gpuname_width or DEFAULT_GPUNAME_WIDTH
-        )
+        # Memory
+        _write(" | ")
+        _write(rjustify(safe_self.memory_used, 5), color='CMemU')
+        _write(" / ")
+        _write(rjustify(safe_self.memory_total, 5), color='CMemT')
+        _write(" MB")
 
         # Add " |" only if processes information is to be added.
         if not no_processes:
-            reps += " |"
+            _write(" |")
 
         def process_repr(p: ProcessInfo):
             r = ''
@@ -362,16 +379,17 @@ class GPUStat:
         full_processes = []
         if processes is None and not no_processes:
             # None (not available)
-            reps += ' ({})'.format(NOT_SUPPORTED)
+            _write(' ', '(', NOT_SUPPORTED, ')')
         elif not no_processes:
             for p in processes:
-                reps += ' ' + process_repr(p)
+                _write(' ', process_repr(p))
                 if show_full_cmd:
                     full_processes.append(eol_char + full_process_info(p))
         if show_full_cmd and full_processes:
             full_processes[-1] = full_processes[-1].replace('├', '└', 1)
-            reps += ''.join(full_processes)
-        fp.write(reps)
+            _write(''.join(full_processes))
+
+        fp.write(''.join(reps))
         return fp
 
     def jsonify(self):
@@ -385,7 +403,7 @@ class GPUStat:
 class InvalidGPU(GPUStat):
     class FallbackDict(dict):
         def __missing__(self, key):
-            return "?"
+            return None
 
     def __init__(self, gpu_index, message, ex):
         super().__init__(self.FallbackDict(

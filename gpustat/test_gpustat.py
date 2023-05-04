@@ -530,8 +530,8 @@ class TestGPUStat(object):
         line = lines[2]
         assert '[2] ((' + message + '))' in line, str(line)
         assert '99999' not in line
-        assert '?°C,   ? %' in line, str(line)
-        assert '? /     ? MB' in line, str(line)
+        assert '??°C,  ?? %' in line, str(line)
+        assert '?? /    ?? MB' in line, str(line)
 
         # other gpus should be displayed normally
         assert '[0] GeForce GTX TITAN 0' in lines[0]
