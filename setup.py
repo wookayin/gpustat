@@ -90,6 +90,7 @@ install_requires = [
     'nvidia-ml-py>=11.450.129',  # see #107, #143
     'psutil>=5.6.0',    # GH-1447
     'blessed>=1.17.1',  # GH-126
+    'typing_extensions',
 ]
 
 tests_requires = [

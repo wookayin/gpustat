@@ -7,7 +7,17 @@ Implementation of gpustat
 @url https://github.com/wookayin/gpustat
 """
 
-from typing import Sequence
+import functools
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, List,
+                    Optional, Sequence, Union)
+
+try:
+    from typing_extensions import TypedDict
+except ModuleNotFoundError:
+    TypedDict = None
+# pyright: reportOptionalOperand = false
+# pyright: reportTypedDictNotRequiredAccess = false
+
 import json
 import locale
 import os.path
@@ -23,7 +33,6 @@ from blessed import Terminal
 import gpustat.util as util
 from gpustat.nvml import pynvml as N
 
-
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
 
@@ -32,91 +41,107 @@ DEFAULT_GPUNAME_WIDTH = 16
 IS_WINDOWS = 'windows' in platform.platform().lower()
 
 
+# Types
+NVMLHandle = Any  # N.c_nvmlDevice_t
+Megabytes = int
+Celcius = int
+Percentage = int
+Watts = int
+ProcessInfo = Dict[str, Any]
+
+# We use the same key/spec as `nvidia-smi --query-help-gpu`
+NvidiaGPUInfo = TypedDict('NvidiaGPUInfo', {
+    'index': int,
+    'name': str,
+    'uuid': str,
+    'temperature.gpu': Optional[Celcius],
+    'fan.speed': Optional[Percentage],
+    'utilization.gpu': Optional[Percentage],
+    'utilization.enc': Optional[Percentage],
+    'utilization.dec': Optional[Percentage],
+    'power.draw': Optional[Watts],
+    'enforced.power.limit': Optional[Watts],
+    'memory.used': Megabytes,
+    'memory.total': Megabytes,
+    'processes': Optional[List[ProcessInfo]],
+}, total=False) if TYPE_CHECKING else dict  # type: ignore
+
+
 class GPUStat:
 
-    def __init__(self, entry):
+    def __init__(self, entry: NvidiaGPUInfo):
         if not isinstance(entry, dict):
             raise TypeError(
                 'entry should be a dict, {} given'.format(type(entry))
             )
         self.entry = entry
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.print_to(StringIO()).getvalue()
 
-    def keys(self):
+    def keys(self) -> Iterable[str]:
         return self.entry.keys()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Any:
         return self.entry[key]
 
     @property
-    def available(self):
+    def available(self) -> bool:
         return True
 
     @property
-    def index(self):
-        """
-        Returns the index of GPU (as in nvidia-smi).
-        """
+    def index(self) -> int:
+        """Returns the index of GPU (as in nvidia-smi --query-gpu=index)."""
         return self.entry['index']
 
     @property
-    def uuid(self):
-        """
-        Returns the uuid returned by nvidia-smi,
+    def uuid(self) -> str:
+        """Returns the uuid of GPU (as nvidia-smi --query-gpu=uuid).
+
         e.g. GPU-12345678-abcd-abcd-uuid-123456abcdef
         """
         return self.entry['uuid']
 
     @property
-    def name(self):
-        """
-        Returns the name of GPU card (e.g. Geforce Titan X)
-        """
+    def name(self) -> str:
+        """Returns the name of GPU card (e.g. GeForce Titan X)."""
         return self.entry['name']
 
     @property
-    def memory_total(self):
-        """
-        Returns the total memory (in MB) as an integer.
-        """
+    def memory_total(self) -> Megabytes:
+        """Returns the total memory (in MB) as an integer."""
         return int(self.entry['memory.total'])
 
     @property
-    def memory_used(self):
-        """
-        Returns the occupied memory (in MB) as an integer.
-        """
+    def memory_used(self) -> Megabytes:
+        """Returns the occupied memory (in MB) as an integer."""
         return int(self.entry['memory.used'])
 
     @property
-    def memory_free(self):
-        """
-        Returns the free (available) memory (in MB) as an integer.
-        """
+    def memory_free(self) -> Megabytes:
+        """Returns the free (available) memory (in MB) as an integer."""
         v = self.memory_total - self.memory_used
         return max(v, 0)
 
     @property
-    def memory_available(self):
-        """
-        Returns the available memory (in MB) as an integer.
-        Alias of memory_free.
+    def memory_available(self) -> Megabytes:
+        """Returns the available memory (in MB) as an integer.
+
+        Alias to memory_free.
         """
         return self.memory_free
 
     @property
-    def temperature(self):
+    def temperature(self) -> Optional[Celcius]:
         """
-        Returns the temperature (in celcius) of GPU as an integer,
+        Returns the temperature (in Celcius) of GPU as an integer,
         or None if the information is not available.
         """
         v = self.entry['temperature.gpu']
         return int(v) if v is not None else None
 
     @property
-    def fan_speed(self):
+    def fan_speed(self) -> Optional[Percentage]:
         """
         Returns the fan speed percentage (0-100) of maximum intended speed
         as an integer, or None if the information is not available.
@@ -125,34 +150,34 @@ class GPUStat:
         return int(v) if v is not None else None
 
     @property
-    def utilization(self):
+    def utilization(self) -> Optional[Percentage]:
         """
-        Returns the GPU utilization (in percentile),
+        Returns the GPU utilization (in percentage),
         or None if the information is not available.
         """
         v = self.entry['utilization.gpu']
         return int(v) if v is not None else None
 
     @property
-    def utilization_enc(self):
+    def utilization_enc(self) -> Optional[Percentage]:
         """
-        Returns the GPU encoder utilization (in percentile),
+        Returns the GPU encoder utilization (in percentage),
         or None if the information is not available.
         """
         v = self.entry['utilization.enc']
         return int(v) if v is not None else None
 
     @property
-    def utilization_dec(self):
+    def utilization_dec(self) -> Optional[Percentage]:
         """
-        Returns the GPU decoder utilization (in percentile),
+        Returns the GPU decoder utilization (in percentage),
         or None if the information is not available.
         """
         v = self.entry['utilization.dec']
         return int(v) if v is not None else None
 
     @property
-    def power_draw(self):
+    def power_draw(self) -> Optional[Percentage]:
         """
         Returns the GPU power usage in Watts,
         or None if the information is not available.
@@ -161,7 +186,7 @@ class GPUStat:
         return int(v) if v is not None else None
 
     @property
-    def power_limit(self):
+    def power_limit(self) -> Optional[Watts]:
         """
         Returns the (enforced) GPU power limit in Watts,
         or None if the information is not available.
@@ -170,10 +195,8 @@ class GPUStat:
         return int(v) if v is not None else None
 
     @property
-    def processes(self):
-        """
-        Get the list of running processes on the GPU.
-        """
+    def processes(self) -> Optional[List[ProcessInfo]]:
+        """Get the list of running processes on the GPU."""
         return self.entry['processes']
 
     def print_to(self, fp, *,
@@ -232,7 +255,7 @@ class GPUStat:
         colors['CCPUUtil'] = term.green
         colors['CPowU'] = _conditional(
             lambda: (self.power_limit is not None and
-                     float(self.power_draw) / self.power_limit < 0.4),
+                     float(self.power_draw) / self.power_limit < 0.4),  # type: ignore
             term.magenta, term.bold_magenta
         )
         colors['CPowL'] = term.magenta
@@ -299,7 +322,7 @@ class GPUStat:
         if not no_processes:
             reps += " |"
 
-        def process_repr(p):
+        def process_repr(p: ProcessInfo):
             r = ''
             if not show_cmd or show_user:
                 r += "{CUser}{}{C0}".format(
@@ -319,7 +342,7 @@ class GPUStat:
             )
             return r
 
-        def full_process_info(p):
+        def full_process_info(p: ProcessInfo):
             r = "{C0} ├─ {:>6} ".format(
                     _repr(p['pid'], '--'), **colors
                 )
@@ -381,8 +404,10 @@ class GPUStatCollection(Sequence[GPUStat]):
 
     global_processes = {}
 
-    def __init__(self, gpu_list, driver_version=None):
-        self.gpus = gpu_list
+    def __init__(self,
+                 gpu_list: Sequence[GPUStat],
+                 driver_version: Optional[str] = None):
+        self.gpus = list(gpu_list)
 
         # attach additional system information
         self.hostname = platform.node()
@@ -402,15 +427,15 @@ class GPUStatCollection(Sequence[GPUStat]):
         N.nvmlInit()
         log = util.DebugHelper()
 
-        def _decode(b):
+        def _decode(b: Union[str, bytes]) -> str:
             if isinstance(b, bytes):
                 return b.decode('utf-8')    # for python3, to unicode
             return b
 
-        def get_gpu_info(handle):
+        def get_gpu_info(handle: NVMLHandle) -> NvidiaGPUInfo:
             """Get one GPU information specified by nvml handle"""
 
-            def safepcall(fn, error_value):
+            def safepcall(fn: Callable[[], Any], error_value: Any):
                 # Ignore the exception from psutil when the process is gone
                 # at the moment of querying. See #144.
                 return util.safecall(
@@ -418,7 +443,7 @@ class GPUStatCollection(Sequence[GPUStat]):
                     exc_types=(psutil.AccessDenied, psutil.NoSuchProcess,
                                FileNotFoundError))
 
-            def get_process_info(nv_process):
+            def get_process_info(nv_process) -> ProcessInfo:
                 """Get the process information of specific pid"""
                 process = {}
                 if nv_process.pid not in GPUStatCollection.global_processes:
@@ -453,73 +478,53 @@ class GPUStatCollection(Sequence[GPUStat]):
                 process['pid'] = nv_process.pid
                 return process
 
-            name = _decode(N.nvmlDeviceGetName(handle))
-            uuid = _decode(N.nvmlDeviceGetUUID(handle))
+            def safenvml(fn):
+                @functools.wraps(fn)
+                def _wrapped(*args, **kwargs):
+                    try:
+                        return fn(*args, **kwargs)
+                    except N.NVMLError as e:
+                        log.add_exception(fn.__name__, e)
+                        return None  # Not supported
+                return _wrapped
 
-            try:
-                temperature = N.nvmlDeviceGetTemperature(
-                    handle, N.NVML_TEMPERATURE_GPU
-                )
-            except N.NVMLError as e:
-                log.add_exception("temperature", e)
-                temperature = None  # Not supported
+            gpu_info = NvidiaGPUInfo()
+            gpu_info['index'] = N.nvmlDeviceGetIndex(handle)
 
-            try:
-                fan_speed = N.nvmlDeviceGetFanSpeed(handle)
-            except N.NVMLError as e:
-                log.add_exception("fan_speed", e)
-                fan_speed = None  # Not supported
+            gpu_info['name'] = _decode(N.nvmlDeviceGetName(handle))
+            gpu_info['uuid'] = _decode(N.nvmlDeviceGetUUID(handle))
 
-            try:
-                # memory: in Bytes
-                # Note that this is a compat-patched API (see gpustat.nvml)
-                memory = N.nvmlDeviceGetMemoryInfo(handle)
-            except N.NVMLError as e:
-                log.add_exception("memory", e)
-                memory = None  # Not supported
+            gpu_info['temperature.gpu'] = safenvml(
+                N.nvmlDeviceGetTemperature)(handle, N.NVML_TEMPERATURE_GPU)
 
-            try:
-                utilization = N.nvmlDeviceGetUtilizationRates(handle)
-            except N.NVMLError as e:
-                log.add_exception("utilization", e)
-                utilization = None  # Not supported
+            gpu_info['fan.speed'] = safenvml(N.nvmlDeviceGetFanSpeed)(handle)
 
-            try:
-                utilization_enc = N.nvmlDeviceGetEncoderUtilization(handle)
-            except N.NVMLError as e:
-                log.add_exception("utilization_enc", e)
-                utilization_enc = None  # Not supported
+            # memory: in Bytes
+            # Note that this is a compat-patched API (see gpustat.nvml)
+            memory = N.nvmlDeviceGetMemoryInfo(handle)
+            gpu_info['memory.used'] = int(memory.used) // MB
+            gpu_info['memory.total'] = int(memory.total) // MB
 
-            try:
-                utilization_dec = N.nvmlDeviceGetDecoderUtilization(handle)
-            except N.NVMLError as e:
-                log.add_exception("utilization_dec", e)
-                utilization_dec = None  # Not supported
+            # GPU utilization
+            utilization = safenvml(N.nvmlDeviceGetUtilizationRates)(handle)
+            gpu_info['utilization.gpu'] = int(utilization.gpu) if utilization is not None else None
 
-            try:
-                power = N.nvmlDeviceGetPowerUsage(handle)
-            except N.NVMLError as e:
-                log.add_exception("power", e)
-                power = None
+            utilization = safenvml(N.nvmlDeviceGetEncoderUtilization)(handle)
+            gpu_info['utilization.enc'] = utilization[0] if utilization is not None else None
 
-            try:
-                power_limit = N.nvmlDeviceGetEnforcedPowerLimit(handle)
-            except N.NVMLError as e:
-                log.add_exception("power_limit", e)
-                power_limit = None
+            utilization = safenvml(N.nvmlDeviceGetDecoderUtilization)(handle)
+            gpu_info['utilization.dec'] = utilization[0] if utilization is not None else None
 
-            try:
-                nv_comp_processes = \
-                    N.nvmlDeviceGetComputeRunningProcesses(handle)
-            except N.NVMLError as e:
-                log.add_exception("compute_processes", e)
-                nv_comp_processes = None  # Not supported
-            try:
-                nv_graphics_processes = \
-                    N.nvmlDeviceGetGraphicsRunningProcesses(handle)
-            except N.NVMLError as e:
-                log.add_exception("graphics_processes", e)
-                nv_graphics_processes = None  # Not supported
+            # Power
+            power = safenvml(N.nvmlDeviceGetPowerUsage)(handle)
+            gpu_info['power.draw'] = power // 1000 if power is not None else None
+
+            power_limit = safenvml(N.nvmlDeviceGetEnforcedPowerLimit)(handle)
+            gpu_info['enforced.power.limit'] = power_limit // 1000 if power_limit is not None else None
+
+            # Processes
+            nv_comp_processes = safenvml(N.nvmlDeviceGetComputeRunningProcesses)(handle)
+            nv_graphics_processes = safenvml(N.nvmlDeviceGetGraphicsRunningProcesses)(handle)
 
             if nv_comp_processes is None and nv_graphics_processes is None:
                 processes = None
@@ -557,30 +562,8 @@ class GPUStatCollection(Sequence[GPUStat]):
                     pid = process['pid']
                     cache_process: psutil.Process = GPUStatCollection.global_processes[pid]
                     process['cpu_percent'] = safepcall(cache_process.cpu_percent, 0)
+            gpu_info['processes'] = processes
 
-            index = N.nvmlDeviceGetIndex(handle)
-
-            # GPU Info.
-            # We use the same key/spec as per `nvidia-smi --query-help-gpu`
-            gpu_info = {
-                'index': index,
-                'uuid': uuid,
-                'name': name,
-                'temperature.gpu': temperature,
-                'fan.speed': fan_speed,
-                'utilization.gpu': utilization.gpu if utilization else None,
-                'utilization.enc':
-                    utilization_enc[0] if utilization_enc else None,
-                'utilization.dec':
-                    utilization_dec[0] if utilization_dec else None,
-                'power.draw': power // 1000 if power is not None else None,
-                'enforced.power.limit': power_limit // 1000
-                if power_limit is not None else None,
-                # Convert bytes into MBytes
-                'memory.used': memory.used // MB if memory else None,
-                'memory.total': memory.total // MB if memory else None,
-                'processes': processes,
-            }
             GPUStatCollection.clean_processes()
             return gpu_info
 
@@ -599,7 +582,7 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         for index in gpus_to_query:
             try:
-                handle = N.nvmlDeviceGetHandleByIndex(index)
+                handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
                 gpu_info = get_gpu_info(handle)
                 gpu_stat = GPUStat(gpu_info)
             except N.NVMLError_Unknown as e:
