@@ -24,7 +24,10 @@ try:
         # Requires nvidia-ml-py >= 11.450.129, < 11.510.69
         hasattr(pynvml, 'nvmlDeviceGetComputeRunningProcesses_v2')
     ) and not ALLOW_LEGACY_PYNVML:
-        raise RuntimeError("pynvml library is outdated.")
+        raise ImportError("pynvml library is outdated.")
+
+    if not hasattr(pynvml, '_nvmlGetFunctionPointer'):
+        raise ImportError("pynvml appears to be a non-official package.")
 
 except (ImportError, SyntaxError, RuntimeError) as e:
     _pynvml = sys.modules.get('pynvml', None)
@@ -33,8 +36,12 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         """\
         pynvml is missing or an outdated version is installed.
 
-        We require nvidia-ml-py>=11.450.129, and nvidia-ml-py3 shall not be used.
+        We require nvidia-ml-py>=11.450.129, and the official NVIDIA python bindings
+        should be used; neither nvidia-ml-py3 nor gpuopenanalytics/pynvml.
         For more details, please refer to: https://github.com/wookayin/gpustat/issues/107
+
+        The root cause: """ + str(e) +
+        """
 
         Your pynvml installation: """ + repr(_pynvml) +
         """
@@ -44,10 +51,10 @@ except (ImportError, SyntaxError, RuntimeError) as e:
 
         $ pip install --force-reinstall gpustat
 
-        If it still does not fix the problem, please manually fix nvidia-ml-py installation:
+        If it still does not fix the problem, please uninstall pynvml packages and reinstall nvidia-ml-py manually:
 
-        $ pip uninstall nvidia-ml-py3
-        $ pip install --force-reinstall 'nvidia-ml-py<=11.495.46'
+        $ pip uninstall nvidia-ml-py3 pynvml
+        $ pip install --force-reinstall --ignore-installed 'nvidia-ml-py'
         """)) from e
 
 
