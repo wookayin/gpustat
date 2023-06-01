@@ -27,7 +27,8 @@ try:
         raise ImportError("pynvml library is outdated.")
 
     if not hasattr(pynvml, '_nvmlGetFunctionPointer'):
-        raise ImportError("pynvml appears to be a non-official package.")
+        # Unofficial pynvml from @gpuopenanalytics/pynvml, see #153
+        import pynvml.nvml as pynvml
 
 except (ImportError, SyntaxError, RuntimeError) as e:
     _pynvml = sys.modules.get('pynvml', None)
