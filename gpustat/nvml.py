@@ -1,5 +1,7 @@
 """Imports pynvml with sanity checks and custom patches."""
 
+# pylint: disable=protected-access
+
 import warnings
 import functools
 import os
@@ -28,7 +30,7 @@ try:
 
     if not hasattr(pynvml, '_nvmlGetFunctionPointer'):
         # Unofficial pynvml from @gpuopenanalytics/pynvml, see #153
-        import pynvml.nvml as pynvml
+        import pynvml.nvml as pynvml  # type: ignore
 
 except (ImportError, SyntaxError, RuntimeError) as e:
     _pynvml = sys.modules.get('pynvml', None)
