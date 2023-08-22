@@ -37,6 +37,9 @@ else:
     __version__ = read_version()
 
 
+# A valid version is like 1.1.0, not v1.1.0
+__version__ = __version__.lstrip('v')
+
 
 # brought from https://github.com/kennethreitz/setup.py
 class DeployCommand(Command):
