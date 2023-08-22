@@ -1,6 +1,20 @@
 Changelog for `gpustat`
 =======================
 
+## v1.2 (Unreleased)
+
+- Internal refactoring for display and formatting
+- Improve CI and release workflow
+
+
+## [v1.1.1] (2023/8/22)
+
+### Improvements
+
+- Show error messages when incorrect pynvml is installed (#153)
+- Make gpustat.nvml compatible with a third-party fork of pynvml (#153)
+
+
 ## [v1.1][milestone-1.1] (2023/4/5)
 
 [milestone-1.1]: https://github.com/wookayin/gpustat/milestone/5
