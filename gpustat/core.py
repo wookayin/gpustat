@@ -32,7 +32,9 @@ from blessed import Terminal
 
 import gpustat.util as util
 from gpustat.nvml import pynvml as N
+import codecs
 
+sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach()) #Setup the default stdout to utf-8
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
 
