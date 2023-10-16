@@ -28,11 +28,19 @@ jobs:
             python-version: "3.11"
           - os: ubuntu-latest
             python-version: "3.11"
-            pynvml-version: 11.495.46
+            pynvml-version: 11.495.46  # legacy pynvml, see #143
+          - os: ubuntu-latest
+            python-version: "3.12"
           - os: windows-latest
             python-version: "3.8"
           - os: windows-latest
             python-version: "3.9"
+          - os: windows-latest
+            python-version: "3.10"
+          - os: windows-latest
+            python-version: "3.11"
+          - os: windows-latest
+            python-version: "3.12"
 
     steps:
       - uses: actions/checkout@v2
