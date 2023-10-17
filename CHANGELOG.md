@@ -5,6 +5,7 @@ Changelog for `gpustat`
 
 - Internal refactoring for display and formatting
 - Improve CI and release workflow
+- Support Python 3.12 by running CI tests.
 
 
 ## [v1.1.1] (2023/8/22)
