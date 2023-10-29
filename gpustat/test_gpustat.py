@@ -275,14 +275,73 @@ class NvidiaDriverMock:
     https://github.com/NVIDIA/nvidia-settings/blame/main/src/nvml.h
     https://github.com/NVIDIA/nvidia-settings/blame/main/src/libXNVCtrlAttributes/NvCtrlAttributesPrivate.h
 
-    Noteworthy changes of nvml driviers:
-        450.66:    nvmlDeviceGetComputeRunningProcesses_v2
-        510.39.01: nvmlDeviceGetComputeRunningProcesses_v3  (_v2 removed)
-                   nvmlDeviceGetMemoryInfo_v2
+    NOTE: Noteworthy BREAKING changes of nvml driviers:
+        450.66:
+            `nvmlDeviceGetComputeRunningProcesses_v2`
+
+        510.39.01:
+            Adds the following:
+            `nvmlDeviceGetComputeRunningProcesses_v3`
+            `nvmlDeviceGetMemoryInfo_v2`
+            `nvmlMemory_v2_st`
+            `nvmlProcessInfo_v2_st`
+
+        ... and the hell breaking changes in R535 series:
+
+        535.43.02: https://github.com/NVIDIA/nvidia-settings/commit/39c3e28
+            (!) `nvmlProcessInfo_st` (v1) adds field `usedGpuCcProtectedMemory`
+            resulting in breaking change in the size of struct.
+            This field is used in API `nvmlDeviceGetComputeRunningProcesses_v3`.
+            pynvml 12.535.77 has the corresponding changes.
+            WARN (has breaking and incompatible change, should not be used)
+            See #161.
+
+        535.98: https://github.com/NVIDIA/nvidia-settings/commit/0cb3bef
+            Rollback of 535.43.02.
+            `nvmlDeviceGetComputeRunningProcesses`: v3 -> v2 (???)
+            Removes field `usedGpuCcProtectedMemory` from `nvmlProcessInfo_st`
+            (which is actually the v2 struct). See #161.
+
+        535.104.05 https://github.com/NVIDIA/nvidia-settings/commit/74cae7f
+            `nvmlDeviceGetComputeRunningProcesses`: v2 -> v3 again
+            Adds `nvmlProcessInfo_v2_st` again. No `usedGpuCcProtectedMemory`!
+            Adds `nvmlProcessDetailList_v1_t`, `nvmlProcessDetail_v1_t`
+            (This seems to be the stable spec). See #161.
+
+    NOTE: pynvml changes:
+        11.450.129: https://github.com/wookayin/nvidia-ml-py/commit/0e6e33b
+            Uses `nvmlDeviceGetComputeRunningProcesses_v2` API
+
+        11.510.69: https://github.com/wookayin/nvidia-ml-py/commit/ae764ef
+            Uses `nvmlDeviceGetComputeRunningProcesses_v3` API
+            Uses `nvmlMemory_v2` and `nvmlDeviceGetMemoryInfo_v2` function
+            (requires driver >= 510.39+)
+            `nvmlDeviceGetMemoryInfo` needs to use `version=` parameter
+
+        (maybe related to #160)
+        11.525.112: https://github.com/wookayin/nvidia-ml-py/commit/7be4584
+        11.525.131: https://github.com/wookayin/nvidia-ml-py/commit/7192938
+
+        12.535.77: https://github.com/wookayin/nvidia-ml-py/commit/f49f679
+            `c_nvmlProcessInfo_t` adds new field `usedGpuCcProtectedMemory`
+            (works for driver 535.43.02 and 535.86 only)
+            WARN (this version is like a regression, should not be used)
+
+        12.535.108: https://github.com/wookayin/nvidia-ml-py/commit/3d13d7c
+            - Introduces `c_nvmlProcessInfo_v2_t`
+                *without* the field `usedGpuCcProtectedMemory` (see 535.98).
+              `c_nvmlProcessInfo_t` now refers to v2_t
+              `nvmlDeviceGetComputeRunningProcesses_v3` uses v2_t
+            - Adds `c_nvmlProcessDetail_v1_t`,
+              which has the field `usedGpuCcProtectedMemory`
+            - New function: `nvmlDeviceGetRunningProcessDetailList`
+
 
     Relevant github issues:
         #107: nvmlDeviceGetComputeRunningProcesses_v2 added
         #141: nvmlDeviceGetMemoryInfo (v1) broken for 510.39.01+
+        #161: Process information broken (not displayed) in R535 drivers
+        #160: OverflowError: Python int too large to convert to C long
     """
     INSTANCES = []
 
