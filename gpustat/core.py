@@ -32,6 +32,7 @@ from blessed import Terminal
 
 import gpustat.util as util
 from gpustat.nvml import pynvml as N
+from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -613,8 +614,10 @@ class GPUStatCollection(Sequence[GPUStat]):
             gpu_list.append(gpu_stat)
 
         # 2. additional info (driver version, etc).
+        # TODO: check this only once, no need to call multiple times
         try:
             driver_version = _decode(N.nvmlSystemGetDriverVersion())
+            check_driver_nvml_version(driver_version)
         except N.NVMLError as e:
             log.add_exception("driver_version", e)
             driver_version = None    # N/A

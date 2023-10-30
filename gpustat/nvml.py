@@ -2,11 +2,12 @@
 
 # pylint: disable=protected-access
 
-import warnings
+from typing import Tuple
 import functools
 import os
 import sys
 import textwrap
+import warnings
 
 # If this environment variable is set, we will bypass pynvml version validation
 # so that legacy pynvml (nvidia-ml-py3) can be used. This would be useful
@@ -59,6 +60,50 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         $ pip uninstall nvidia-ml-py3 pynvml
         $ pip install --force-reinstall --ignore-installed 'nvidia-ml-py'
         """)) from e
+
+
+class NvidiaCompatibilityWarning(UserWarning):
+    pass
+
+
+def check_driver_nvml_version(driver_version_str: str):
+    """Show warnings when an incompatible driver is used."""
+
+    def safeint(v) -> int:
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return 0
+
+    driver_version = tuple(safeint(v) for v in
+                           driver_version_str.strip().split("."))
+
+    # #161: invalid process information on 535.xx
+    is_pynvml_535_77 = (
+        hasattr(pynvml.c_nvmlProcessInfo_t, 'usedGpuCcProtectedMemory') and
+        # Note: __name__ changed to pynvml.c_nvmlProcessInfo_v2_t since 12.535.108+
+        pynvml.c_nvmlProcessInfo_t.__name__ == 'c_nvmlProcessInfo_t'
+    )
+
+    if (535, 43) <= driver_version < (535, 86):
+        # See #161: these are buggy, gives wrong process information
+        # except for nvidia-ml-py == 12.535.77 (which is a buggy version too).
+        # Note: NVIDIA 535.86+ and nvidia-ml-py 12.535.108+ fixes the bug
+        if not is_pynvml_535_77:
+            warnings.warn(
+                f"This version of NVIDIA Driver {driver_version_str} is incompatible, "
+                "process information will be inaccurate. "
+                "Upgrade the NVIDIA driver to 535.104.05 or higher, "
+                "or use nvidia-ml-py==12.535.77. For more details, see "
+                "https://github.com/wookayin/gpustat/issues/161.",
+                category=NvidiaCompatibilityWarning, stacklevel=2)
+    else:
+        if is_pynvml_535_77:   # pynvml 12.535.77 should not be used
+            warnings.warn(
+                "This version of nvidia-ml-py (possibly 12.535.77) is incompatible. "
+                "Please upgrade nvidia-ml-py to the latest version. "
+                "(pip install --upgrade --force-reinstall nvidia-ml-py)",
+                category=NvidiaCompatibilityWarning, stacklevel=2)
 
 
 # Monkey-patch nvml due to breaking changes in pynvml.
