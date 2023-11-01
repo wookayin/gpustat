@@ -1,3 +1,5 @@
+"""gpustat CLI."""
+
 import os
 import sys
 import time
@@ -104,6 +106,7 @@ def loop_gpustat(interval=1.0, **kwargs):
 
 
 def main(*argv):
+    """The main entrypoint to the gpustat CLI."""
     if not argv:
         argv = list(sys.argv)
 
@@ -111,8 +114,9 @@ def main(*argv):
     try:  # sigpipe not available under windows. just ignore in this case
         import signal
         signal.signal(signal.SIGPIPE, signal.SIG_DFL)
-    except Exception as e:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
+
     # arguments to gpustat
     import argparse
     try:
@@ -200,7 +204,7 @@ def main(*argv):
         args.show_fan_speed = True
         args.show_codec = 'enc,dec'
         args.show_power = 'draw,limit'
-    del args.show_all
+    del args.show_all  # type: ignore
 
     if args.interval is None:  # with default value
         args.interval = 1.0
@@ -213,7 +217,7 @@ def main(*argv):
 
         loop_gpustat(**vars(args))
     else:
-        del args.interval
+        del args.interval  # type: ignore
         print_gpustat(**vars(args))
 
 

@@ -3,7 +3,7 @@ Unit or integration tests for gpustat
 """
 # flake8: ignore=E501
 # pyright: reportGeneralTypeIssues=false
-# pylint: disable=protected-access,no-member
+# pylint: disable=protected-access,no-member,redefined-outer-name
 
 import ctypes
 import os
