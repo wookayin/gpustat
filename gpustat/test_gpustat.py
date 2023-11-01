@@ -298,7 +298,8 @@ class NvidiaDriverMock:
 
         535.98: https://github.com/NVIDIA/nvidia-settings/commit/0cb3bef
             Rollback of 535.43.02.
-            `nvmlDeviceGetComputeRunningProcesses`: v3 -> v2 (???)
+            `nvmlDeviceGetComputeRunningProcesses`: v3 -> v2
+            the process _v3 API was removed (which is a regression).
             Removes field `usedGpuCcProtectedMemory` from `nvmlProcessInfo_st`
             (which is actually the v2 struct). See #161.
 
@@ -339,9 +340,9 @@ class NvidiaDriverMock:
 
     Relevant github issues:
         #107: nvmlDeviceGetComputeRunningProcesses_v2 added
-        #141: nvmlDeviceGetMemoryInfo (v1) broken for 510.39.01+
-        #161: Process information broken (not displayed) in R535 drivers
-        #160: OverflowError: Python int too large to convert to C long
+        #141: nvmlDeviceGetMemoryInfo (v1) broken in 510.39.01+
+        #161: Process information broken (not displayed) in 535.43-86
+        #160: OverflowError: Python int too large ... in 535.43-86
     """
     INSTANCES = []
 
