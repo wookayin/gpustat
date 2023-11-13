@@ -48,6 +48,7 @@ def _configure_mock(N=pynvml,
     unstub(N)  # reset all the stubs
 
     when(N).nvmlInit().thenReturn()
+    gpustat.nvml._initialized = True  # nvmlInit() is called upon module import
     when(N).nvmlShutdown().thenReturn()
     when(N).nvmlSystemGetDriverVersion().thenReturn('415.27.mock')
 

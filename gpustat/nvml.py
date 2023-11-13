@@ -2,7 +2,7 @@
 
 # pylint: disable=protected-access
 
-from typing import Tuple
+import atexit
 import functools
 import os
 import sys
@@ -204,4 +204,30 @@ setattr(pynvml, '_nvmlGetFunctionPointer', pynvml_monkeypatch._nvmlGetFunctionPo
 setattr(pynvml, 'nvmlDeviceGetMemoryInfo', pynvml_monkeypatch.nvmlDeviceGetMemoryInfo)
 
 
-__all__ = ['pynvml']
+# Upon importing this module, let pynvml be initialized and remain active
+# throughout the lifespan of the python process (until gpustat exists).
+_initialized: bool
+_init_error = None
+try:
+    pynvml.nvmlInit()
+    _initialized = True
+
+    def _shutdown():
+        pynvml.nvmlShutdown()
+    atexit.register(_shutdown)
+
+except pynvml.NVMLError as exc:
+    _initialized = False
+    _init_error = exc
+
+
+def ensure_initialized():
+    if not _initialized:
+        raise _init_error  # type: ignore
+
+
+__all__ = [
+    'pynvml',
+    'check_driver_nvml_version',
+    'ensure_initialized',
+]

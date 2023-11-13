@@ -31,6 +31,7 @@ import psutil
 from blessed import Terminal
 
 import gpustat.util as util
+import gpustat.nvml as nvml
 from gpustat.nvml import pynvml as N
 from gpustat.nvml import check_driver_nvml_version
 
@@ -443,7 +444,7 @@ class GPUStatCollection(Sequence[GPUStat]):
     def new_query(debug=False, id=None) -> 'GPUStatCollection':
         """Query the information of all the GPUs on local machine"""
 
-        N.nvmlInit()
+        nvml.ensure_initialized()
         log = util.DebugHelper()
 
         def _decode(b: Union[str, bytes]) -> str:
@@ -625,7 +626,6 @@ class GPUStatCollection(Sequence[GPUStat]):
         if debug:
             log.report_summary()
 
-        N.nvmlShutdown()
         return GPUStatCollection(gpu_list, driver_version=driver_version)
 
     def __len__(self):
@@ -752,15 +752,10 @@ def new_query() -> GPUStatCollection:
 def gpu_count() -> int:
     '''Return the number of available GPUs in the system.'''
     try:
-        N.nvmlInit()
+        nvml.ensure_initialized()
         return N.nvmlDeviceGetCount()
     except N.NVMLError:
         return 0  # fallback
-    finally:
-        try:
-            N.nvmlShutdown()
-        except N.NVMLError:
-            pass
 
 
 def is_available() -> bool:
