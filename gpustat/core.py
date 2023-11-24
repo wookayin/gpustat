@@ -17,6 +17,7 @@ except ModuleNotFoundError:
     TypedDict = None
 # pyright: reportOptionalOperand = false
 # pyright: reportTypedDictNotRequiredAccess = false
+# pylint: disable=redefined-builtin
 
 import json
 import locale
@@ -30,8 +31,8 @@ from io import StringIO
 import psutil
 from blessed import Terminal
 
-import gpustat.util as util
-import gpustat.nvml as nvml
+from gpustat import util
+from gpustat import nvml
 from gpustat.nvml import pynvml as N
 from gpustat.nvml import check_driver_nvml_version
 
@@ -225,7 +226,7 @@ class GPUStat:
                          error_value=term.bold_black):
             try:
                 return cond_fn() and true_value or false_value
-            except Exception:
+            except Exception:  # pylint: disable=broad-exception-caught
                 return error_value
 
         _ENC_THRESHOLD = 50
@@ -260,7 +261,7 @@ class GPUStat:
             for k in list(colors.keys()):
                 colors[k] = ''
 
-        def _repr(v, none_value='??'):
+        def _repr(v, none_value: Any = '??'):
             return none_value if v is None else v
 
         # build one-line display information
@@ -271,6 +272,7 @@ class GPUStat:
         def _write(*args, color=None, end=''):
             args = [str(x) for x in args]
             if color:
+                # pylint: disable-next=consider-using-get
                 if color in colors:
                     color = colors[color]
                 args = [color] + args + [term.normal]
@@ -284,16 +286,16 @@ class GPUStat:
         # Null-safe property accessor like self.xxxx,
         # but fall backs to '?' for None or missing values
         class SafePropertyAccessor:
-            def __init__(self):
-                pass
-            def __getattr__(_, name):  # type: ignore
+            def __init__(self, obj):
+                self.obj = obj
+            def __getattr__(self, name):  # type: ignore
                 try:
-                    v = getattr(self, name)
+                    v = getattr(self.obj, name)
                     return v if v is not None else '??'
                 except TypeError:  # possibly int(None), etc.
                     return '??'
 
-        safe_self = cast(GPUStat, SafePropertyAccessor())
+        safe_self = cast(GPUStat, SafePropertyAccessor(self))
 
         _write(f"[{self.index}]", color=term.cyan)
         _write(" ")
@@ -368,7 +370,7 @@ class GPUStat:
             r += "{C0}({CCPUUtil}{:4.0f}%{C0}, {CCPUMemU}{:>6}{C0})".format(
                     _repr(p['cpu_percent'], '--'),
                     util.bytes2human(_repr(p['cpu_memory_usage'], 0)), **colors
-                )
+                )  # type: ignore
             full_command_pretty = util.prettify_commandline(
                 p['full_command'], colors['C1'], colors['CCmd'])
             r += "{C0}: {CCmd}{}{C0}".format(
@@ -383,7 +385,7 @@ class GPUStat:
             # None (not available)
             _write(' ', '(', NOT_SUPPORTED, ')')
         elif not no_processes:
-            for p in processes:
+            for p in (processes or []):
                 _write(' ', process_repr(p))
                 if show_full_cmd:
                     full_processes.append(eol_char + full_process_info(p))
@@ -404,15 +406,17 @@ class GPUStat:
 
 class InvalidGPU(GPUStat):
     class FallbackDict(dict):
+        # pylint: disable-next=useless-return
         def __missing__(self, key):
+            del key
             return None
 
     def __init__(self, gpu_index, message, ex):
         super().__init__(self.FallbackDict(
             index=gpu_index,
             name=message,
-            processes=None
-        ))
+            processes=None,
+        ))  # type: ignore
         self.exception = ex
 
     @property
@@ -449,7 +453,8 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         def _decode(b: Union[str, bytes]) -> str:
             if isinstance(b, bytes):
-                return b.decode('utf-8')    # for python3, to unicode
+                return b.decode('utf-8')
+            assert isinstance(b, str)
             return b
 
         def get_gpu_info(handle: NVMLHandle) -> NvidiaGPUInfo:
@@ -664,9 +669,10 @@ class GPUStatCollection(Sequence[GPUStat]):
             t_color = Terminal(kind=TERM, force_styling=True)
 
             # workaround of issue #32 (watch doesn't recognize sgr0 characters)
-            t_color._normal = '\x1b[0;10m'
+            # pylint: disable-next=protected-access
+            t_color._normal = '\x1b[0;10m'  # type: ignore
         elif no_color:
-            t_color = Terminal(force_styling=None)
+            t_color = Terminal(force_styling=None)  # type: ignore
         else:
             t_color = Terminal()   # auto, depending on isatty
 
