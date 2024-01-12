@@ -34,9 +34,16 @@ pip install git+https://github.com/wookayin/gpustat.git@master
 ```
 
 
-### NVIDIA Driver Requirements
+### NVIDIA Driver and `pynvml` Requirements
 
-`gpustat` uses [NVIDIA's official python bindings for NVML library (pynvml)][pypi_pynvml]. As of now `gpustat` requires `nvidia-ml-py >= 11.450.129`, which is compatible with NVIDIA driver versions R450.00 or higher. Please upgrade the NVIDIA driver if `gpustat` fails to display process information. If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
+>[!IMPORTANT]
+> **DO NOT:** `pip install pynvml`, nor include [`pynvml`][pypi_wrong] as a dependency in your python project. This will not work.
+>
+> Instead: `pip install nvidia-ml-py`. [nvidia-ml-py][pypi_pynvml] is NVIDIA's the official python binding for NVML.
+
+- gpustat 1.2+: Requires `nvidia-ml-py >= 12.535.108` ([#161][gh-issue-161])
+- gpustat 1.0+: Requires NVIDIA Driver **450.00** or higher and `nvidia-ml-py >= 11.450.129`.
+- If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
 
 
 ### Python requirements
@@ -86,6 +93,7 @@ Options (Please see `gpustat --help` for more details):
 
 [pypi_gpustat]: https://pypi.org/project/gpustat/
 [pypi_pynvml]: https://pypi.org/project/nvidia-ml-py/#history
+[pypi_wrong]: https://pypi.org/project/pynvml/
 [gh-issue-10]: https://github.com/wookayin/gpustat/issues/10
 [gh-issue-41]: https://github.com/wookayin/gpustat/issues/41
 [gh-issue-54]: https://github.com/wookayin/gpustat/issues/54
@@ -93,6 +101,7 @@ Options (Please see `gpustat --help` for more details):
 [gh-issue-107]: https://github.com/wookayin/gpustat/issues/107
 [gh-issue-131]: https://github.com/wookayin/gpustat/issues/131
 [gh-issue-133]: https://github.com/wookayin/gpustat/issues/133
+[gh-issue-161]: https://github.com/wookayin/gpustat/issues/161#issuecomment-1784007533
 
 Default display
 ---------------
