@@ -30,8 +30,12 @@ try:
         raise ImportError("pynvml library is outdated.")
 
     if not hasattr(pynvml, '_nvmlGetFunctionPointer'):
-        # Unofficial pynvml from @gpuopenanalytics/pynvml, see #153
-        import pynvml.nvml as pynvml  # type: ignore
+        raise ImportError(
+            """pynvml appears to be a non-official package.
+
+            The PyPI package `pynvml` should not be used.
+            Please use the official NVIDIA bindings `nvidia-ml-py`.
+            """)
 
 except (ImportError, SyntaxError, RuntimeError) as e:
     _pynvml = sys.modules.get('pynvml', None)
@@ -40,9 +44,12 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         """\
         pynvml is missing or an outdated version is installed.
 
-        We require nvidia-ml-py>=11.450.129, and the official NVIDIA python bindings
-        should be used; neither nvidia-ml-py3 nor gpuopenanalytics/pynvml.
-        For more details, please refer to: https://github.com/wookayin/gpustat/issues/107
+        gpustat requires nvidia-ml-py>=11.450.129, and the *official* NVIDIA python bindings
+        should be used; neither nvidia-ml-py3 nor gpuopenanalytics/pynvml is compatible.
+
+        For more details, please refer to:
+            https://github.com/wookayin/gpustat/issues/107
+            https://github.com/wookayin/gpustat/issues/153
 
         The root cause: """ + str(e) +
         """
@@ -51,11 +58,11 @@ except (ImportError, SyntaxError, RuntimeError) as e:
         """
 
         -----------------------------------------------------------
-        Please reinstall `gpustat`:
+        (Suggested Fix) Please reinstall `gpustat`:
 
         $ pip install --force-reinstall gpustat
 
-        If it still does not fix the problem, please uninstall pynvml packages and reinstall nvidia-ml-py manually:
+        If it still does not fix the problem, please uninstall `pynvml` packages and reinstall `nvidia-ml-py` manually:
 
         $ pip uninstall nvidia-ml-py3 pynvml
         $ pip install --force-reinstall --ignore-installed 'nvidia-ml-py'
