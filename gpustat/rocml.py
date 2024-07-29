@@ -83,7 +83,7 @@ def nvmlDeviceGetComputeRunningProcesses(dev):
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
 
-# Upon importing this module, let pynvml be initialized and remain active
+# Upon importing this module, let rocml be initialized and remain active
 # throughout the lifespan of the python process (until gpustat exists).
 _initialized: bool
 _init_error = None
@@ -95,7 +95,7 @@ try:
         rocml.smi_shutdown()
     atexit.register(_shutdown)
 
-except pynvml.NVMLError as exc:
+except Exception as exc:
     _initialized = False
     _init_error = exc
 
