@@ -30,9 +30,9 @@ import psutil
 from blessed import Terminal
 
 from gpustat import util
-from gpustat import nvml
-from gpustat.nvml import pynvml as N
-from gpustat.nvml import check_driver_nvml_version
+from gpustat import rocml as nvml
+from gpustat import rocml as N
+from gpustat.rocml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -555,6 +555,7 @@ class GPUStatCollection(Sequence[GPUStat]):
                 processes = []
                 nv_comp_processes = nv_comp_processes or []
                 nv_graphics_processes = nv_graphics_processes or []
+                print(nv_comp_processes)
                 # A single process might run in both of graphics and compute mode,
                 # However we will display the process only once
                 seen_pids = set()
@@ -608,10 +609,12 @@ class GPUStatCollection(Sequence[GPUStat]):
                 handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
                 gpu_info = get_gpu_info(handle)
                 gpu_stat = GPUStat(gpu_info)
-            except N.NVMLError_Unknown as e:
+            except Exception as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
-            except N.NVMLError_GpuIsLost as e:
-                gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
+            #except N.NVMLError_Unknown as e:
+            #    gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
+            #except N.NVMLError_GpuIsLost as e:
+            #    gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
 
             if isinstance(gpu_stat, InvalidGPU):
                 log.add_exception("GPU %d" % index, gpu_stat.exception)
