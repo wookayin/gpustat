@@ -1,4 +1,4 @@
-"""Imports pynvml with sanity checks and custom patches."""
+"""Imports pyrsmi and wraps it in a pynvml compatible interface."""
 
 # pylint: disable=protected-access
 
@@ -16,9 +16,18 @@ from pyrsmi import rocml
 
 NVML_TEMPERATURE_GPU = 1
 
+class NVMLError_Unknown(Exception):
+    def __init__(self, message="An unknown ROCMLError has occurred"):
+        self.message = message
+        super().__init__(self.message)
+
+class NVMLError_GpuIsLost(Exception):
+    def __init__(self, message="ROCM Device is lost."):
+        self.message = message
+        super().__init__(self.message)
+
 def nvmlDeviceGetCount():
     return rocml.smi_get_device_count()
-
 
 def nvmlDeviceGetHandleByIndex(dev):
     return dev

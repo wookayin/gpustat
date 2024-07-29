@@ -2,6 +2,7 @@
 
 import collections
 import os.path
+import subprocess
 import sys
 import traceback
 from typing import Callable, Tuple, Type, TypeVar, Union
@@ -101,3 +102,11 @@ class DebugHelper:
                 self._write("{msg} -> Total {value} occurrences.".format(
                     msg=msg, value=value))
             self._write('')
+
+
+def hasNvidia():
+    try:
+        subprocess.check_output('nvidia-smi')
+        return True
+    except Exception:
+        return False
