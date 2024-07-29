@@ -104,9 +104,9 @@ class DebugHelper:
             self._write('')
 
 
-def hasNvidia():
+def hasAMD():
     try:
-        subprocess.check_output('nvidia-smi')
+        subprocess.check_output('rocm-smi')
         return True
     except Exception:
         return False

@@ -31,14 +31,14 @@ from blessed import Terminal
 
 from gpustat import util
 
-if util.hasNvidia():
-    from gpustat import nvml
-    from gpustat.nvml import nvml as N
-    from gpustat.nvml import check_driver_nvml_version
-else:
+if util.hasAMD():
     from gpustat import rocml as nvml
     from gpustat import rocml as N
     from gpustat.rocml import check_driver_nvml_version
+else:
+    from gpustat import nvml
+    from gpustat.nvml import nvml as N
+    from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
