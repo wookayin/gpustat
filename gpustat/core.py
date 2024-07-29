@@ -37,7 +37,7 @@ if util.hasAMD():
     from gpustat.rocml import check_driver_nvml_version
 else:
     from gpustat import nvml
-    from gpustat.nvml import nvml as N
+    from gpustat.nvml import pynvml as N
     from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
