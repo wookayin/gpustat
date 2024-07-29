@@ -614,12 +614,12 @@ class GPUStatCollection(Sequence[GPUStat]):
                 handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
                 gpu_info = get_gpu_info(handle)
                 gpu_stat = GPUStat(gpu_info)
-            except Exception as e:
-                gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
             except N.NVMLError_Unknown as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
             except N.NVMLError_GpuIsLost as e:
                 gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
+            except Exception as e:
+                gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
 
             if isinstance(gpu_stat, InvalidGPU):
                 log.add_exception("GPU %d" % index, gpu_stat.exception)
