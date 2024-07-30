@@ -110,6 +110,9 @@ def nvmlDeviceGetComputeRunningProcesses(dev):
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
 
+def nvmlDeviceGetClkFreq(dev):
+    return rocml.smi_get_device_freq(dev)
+
 # Upon importing this module, let rocml be initialized and remain active
 # throughout the lifespan of the python process (until gpustat exists).
 _initialized: bool

@@ -206,6 +206,13 @@ class GPUStat:
         """Get the list of running processes on the GPU."""
         return self.entry['processes']
 
+    @property
+    def clk_freq(self) -> Optional[int]:
+        """
+        """
+        v = self.entry['clk_freq']
+        return int(v) if v is not None else None
+
     def print_to(self, fp, *,
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
@@ -335,6 +342,10 @@ class GPUStat:
             if show_power is True or 'limit' in show_power:
                 _write(" / ")
                 _write(rjustify(safe_self.power_limit, 3), ' W', color='CPowL')
+                
+        _write(",  ")
+        _write(rjustify(safe_self.clk_freq, 3), color='CPowU')
+        _write(" MHz")
 
         # Memory
         _write(" | ")
@@ -550,6 +561,10 @@ class GPUStatCollection(Sequence[GPUStat]):
 
             power_limit = safenvml(N.nvmlDeviceGetEnforcedPowerLimit)(handle)
             gpu_info['enforced.power.limit'] = power_limit // 1000 if power_limit is not None else None
+
+            # Frequency
+            freq = safenvml(N.nvmlDeviceGetClkFreq)(handle)
+            gpu_info['clk_freq'] = freq if freq is not None else None
 
             # Processes
             nv_comp_processes = safenvml(N.nvmlDeviceGetComputeRunningProcesses)(handle)
