@@ -26,8 +26,21 @@ class NVMLError_GpuIsLost(Exception):
         self.message = message
         super().__init__(self.message)
 
+
+_stdout_dup = os.dup(1)
+_stderr_dup = os.dup(2)
+_silent_pipe = os.open(os.devnull, os.O_WRONLY)
+
+def silent_run(to_call, *args, **kwargs):
+    os.dup2(_silent_pipe, 1)
+    os.dup2(_silent_pipe, 2)
+    retval = to_call(*args, **kwargs)
+    os.dup2(_stdout_dup, 1)
+    os.dup2(_stderr_dup, 2)
+    return retval
+
 def nvmlDeviceGetCount():
-    return rocml.smi_get_device_count()
+    return silent_run(rocml.smi_get_device_count)
 
 def nvmlDeviceGetHandleByIndex(dev):
     return dev
@@ -36,32 +49,45 @@ def nvmlDeviceGetIndex(dev):
     return dev
 
 def nvmlDeviceGetName(dev):
-    return rocml.smi_get_device_name(dev)
+    return silent_run(rocml.smi_get_device_name, dev)
 
 def nvmlDeviceGetUUID(dev):
-    return rocml.smi_get_device_uuid(dev)
+    return silent_run(rocml.smi_get_device_uuid, dev)
 
 def nvmlDeviceGetTemperature(dev, loc=NVML_TEMPERATURE_GPU):
-    return rocml.smi_get_device_temp(dev, loc)
+    return silent_run(rocml.smi_get_device_temp, dev, loc)
 
 def nvmlSystemGetDriverVersion():
-    return rocml.smi_get_kernel_version()
+    return silent_run(rocml.smi_get_kernel_version)
 
 def check_driver_nvml_version(driver_version_str: str):
-    return
+    """Show warnings when an incompatible driver is used."""
+
+    def safeint(v) -> int:
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return 0
+
+    driver_version = tuple(safeint(v) for v in
+                           driver_version_str.strip().split("."))
+
+    if driver_version < (6, 7, 8):
+        warnings.warn(f"This version of ROCM Driver {driver_version_str} is untested, ")
 
 def nvmlDeviceGetFanSpeed(dev):
-    return None#rocml.smi_get_device_fan_speed(dev)
+    return silent_run(rocml.smi_get_device_fan_speed, dev)
 
 MemoryInfo = namedtuple('MemoryInfo', ['total', 'used'])
 
 def nvmlDeviceGetMemoryInfo(dev):
-    return MemoryInfo(total=rocml.smi_get_device_memory_total(dev), used=rocml.smi_get_device_memory_used(dev))
+    return MemoryInfo(total=silent_run(rocml.smi_get_device_memory_total, dev),
+                      used=silent_run(rocml.smi_get_device_memory_used, dev))
 
 UtilizationRates = namedtuple('UtilizationRates', ['gpu'])
 
 def nvmlDeviceGetUtilizationRates(dev):
-    return UtilizationRates(gpu=rocml.smi_get_device_utilization(dev))
+    return UtilizationRates(gpu=silent_run(rocml.smi_get_device_utilization, dev))
 
 def nvmlDeviceGetEncoderUtilization(dev):
     return None
@@ -70,7 +96,7 @@ def nvmlDeviceGetDecoderUtilization(dev):
     return None
 
 def nvmlDeviceGetPowerUsage(dev):
-    return None#rocml.smi_get_device_average_power(dev)
+    return silent_run(rocml.smi_get_device_average_power, dev)
 
 def nvmlDeviceGetEnforcedPowerLimit(dev):
     return None
@@ -78,7 +104,8 @@ def nvmlDeviceGetEnforcedPowerLimit(dev):
 ComputeProcess = namedtuple('ComputeProcess', ['pid'])
 
 def nvmlDeviceGetComputeRunningProcesses(dev):
-    return [ComputeProcess(pid=i) for i in rocml.smi_get_device_compute_process()]
+    processes = silent_run(rocml.smi_get_device_compute_process)
+    return [ComputeProcess(pid=i) for i in processes]
 
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
