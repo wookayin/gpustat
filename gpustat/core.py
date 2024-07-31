@@ -213,6 +213,13 @@ class GPUStat:
         v = self.entry['clk_freq']
         return int(v) if v is not None else None
 
+    @property
+    def clk_freq_max(self) -> Optional[int]:
+        """
+        """
+        v = self.entry['clk_freq_max']
+        return int(v) if v is not None else None
+
     def print_to(self, fp, *,
                  with_colors=True,    # deprecated arg
                  show_cmd=False,
@@ -345,6 +352,8 @@ class GPUStat:
                 
         _write(",  ")
         _write(rjustify(safe_self.clk_freq, 3), color='CPowU')
+        _write(" / ")
+        _write(rjustify(safe_self.clk_freq_max, 3), color='CPowU')
         _write(" MHz")
 
         # Memory
@@ -472,7 +481,7 @@ class GPUStatCollection(Sequence[GPUStat]):
             assert isinstance(b, str)
             return b
 
-        def get_gpu_info(handle: NVMLHandle) -> NvidiaGPUInfo:
+        def get_gpu_info(handle: NVMLHandle, index: int = None) -> NvidiaGPUInfo:
             """Get one GPU information specified by nvml handle"""
 
             def safepcall(fn: Callable[[], Any], error_value: Any):
@@ -529,7 +538,7 @@ class GPUStatCollection(Sequence[GPUStat]):
                 return _wrapped
 
             gpu_info = NvidiaGPUInfo()
-            gpu_info['index'] = N.nvmlDeviceGetIndex(handle)
+            gpu_info['index'] = N.nvmlDeviceGetIndex(handle) if index is None else index
 
             gpu_info['name'] = _decode(N.nvmlDeviceGetName(handle))
             gpu_info['uuid'] = _decode(N.nvmlDeviceGetUUID(handle))
@@ -557,14 +566,16 @@ class GPUStatCollection(Sequence[GPUStat]):
 
             # Power
             power = safenvml(N.nvmlDeviceGetPowerUsage)(handle)
-            gpu_info['power.draw'] = power // 1000 if power is not None else None
+            gpu_info['power.draw'] = power if power is not None else None
 
             power_limit = safenvml(N.nvmlDeviceGetEnforcedPowerLimit)(handle)
-            gpu_info['enforced.power.limit'] = power_limit // 1000 if power_limit is not None else None
+            gpu_info['enforced.power.limit'] = power_limit if power_limit is not None else None
 
             # Frequency
             freq = safenvml(N.nvmlDeviceGetClkFreq)(handle)
             gpu_info['clk_freq'] = freq if freq is not None else None
+            freq_max = safenvml(N.nvmlDeviceGetClkFreqMax)(handle)
+            gpu_info['clk_freq_max'] = freq_max if freq_max is not None else None
 
             # Processes
             nv_comp_processes = safenvml(N.nvmlDeviceGetComputeRunningProcesses)(handle)
@@ -627,7 +638,7 @@ class GPUStatCollection(Sequence[GPUStat]):
         for index in gpus_to_query:
             try:
                 handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
-                gpu_info = get_gpu_info(handle)
+                gpu_info = get_gpu_info(handle, index)
                 gpu_stat = GPUStat(gpu_info)
             except N.NVMLError_Unknown as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)

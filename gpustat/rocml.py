@@ -12,7 +12,7 @@ import warnings
 from collections import namedtuple
 
 
-from pyrsmi import rocml
+from amdsmi import *
 
 NVML_TEMPERATURE_GPU = 1
 
@@ -40,25 +40,25 @@ def silent_run(to_call, *args, **kwargs):
     return retval
 
 def nvmlDeviceGetCount():
-    return silent_run(rocml.smi_get_device_count)
+    return len(amdsmi_get_processor_handles())
 
 def nvmlDeviceGetHandleByIndex(dev):
-    return dev
+    return amdsmi_get_processor_handles()[dev]
 
 def nvmlDeviceGetIndex(dev):
-    return dev
+    return -1
 
 def nvmlDeviceGetName(dev):
-    return silent_run(rocml.smi_get_device_name, dev)
+    return amdsmi_get_gpu_board_info(dev)["product_name"]
 
 def nvmlDeviceGetUUID(dev):
-    return silent_run(rocml.smi_get_device_uuid, dev)
+    return amdsmi_get_gpu_device_uuid(dev)
 
 def nvmlDeviceGetTemperature(dev, loc=NVML_TEMPERATURE_GPU):
-    return silent_run(rocml.smi_get_device_temp, dev, loc)
+    return amdsmi_get_temp_metric(dev, AmdSmiTemperatureType.HOTSPOT, AmdSmiTemperatureMetric.CURRENT)
 
 def nvmlSystemGetDriverVersion():
-    return silent_run(rocml.smi_get_kernel_version)
+    return ""
 
 def check_driver_nvml_version(driver_version_str: str):
     """Show warnings when an incompatible driver is used."""
@@ -76,18 +76,21 @@ def check_driver_nvml_version(driver_version_str: str):
         warnings.warn(f"This version of ROCM Driver {driver_version_str} is untested, ")
 
 def nvmlDeviceGetFanSpeed(dev):
-    return silent_run(rocml.smi_get_device_fan_speed, dev)
+    try:
+        return amdsmi_get_gpu_fan_speed(dev, 0)
+    except Exception:
+        return None
 
 MemoryInfo = namedtuple('MemoryInfo', ['total', 'used'])
 
 def nvmlDeviceGetMemoryInfo(dev):
-    return MemoryInfo(total=silent_run(rocml.smi_get_device_memory_total, dev),
-                      used=silent_run(rocml.smi_get_device_memory_used, dev))
+    return MemoryInfo(total=amdsmi_get_gpu_memory_total(dev, AmdSmiMemoryType.VRAM),
+                      used=amdsmi_get_gpu_memory_usage(dev, AmdSmiMemoryType.VRAM))
 
 UtilizationRates = namedtuple('UtilizationRates', ['gpu'])
 
 def nvmlDeviceGetUtilizationRates(dev):
-    return UtilizationRates(gpu=silent_run(rocml.smi_get_device_utilization, dev))
+    return UtilizationRates(gpu=amdsmi_get_gpu_activity(dev)["gfx_activity"])
 
 def nvmlDeviceGetEncoderUtilization(dev):
     return None
@@ -96,33 +99,41 @@ def nvmlDeviceGetDecoderUtilization(dev):
     return None
 
 def nvmlDeviceGetPowerUsage(dev):
-    return silent_run(rocml.smi_get_device_average_power, dev)
+    return amdsmi_get_power_info(dev)["current_socket_power"]
 
 def nvmlDeviceGetEnforcedPowerLimit(dev):
-    return None
+    return amdsmi_get_power_info(dev)["power_limit"]
 
-ComputeProcess = namedtuple('ComputeProcess', ['pid'])
+ComputeProcess = namedtuple('ComputeProcess', ['pid', 'usedGpuMemory'])
 
 def nvmlDeviceGetComputeRunningProcesses(dev):
-    processes = silent_run(rocml.smi_get_device_compute_process)
-    return [ComputeProcess(pid=i) for i in processes]
+    results = amdsmi_get_gpu_process_list(dev)
+    return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
 
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
 
 def nvmlDeviceGetClkFreq(dev):
-    return rocml.smi_get_device_freq(dev)
+    result = amdsmi_get_clock_info(dev, AmdSmiClkType.SYS)
+    if "clk" in result:
+        return result["clk"]
+    else:
+        return result["cur_clk"]
+
+def nvmlDeviceGetClkFreqMax(dev):
+    result = amdsmi_get_clock_info(dev, AmdSmiClkType.SYS)
+    return result["max_clk"]
 
 # Upon importing this module, let rocml be initialized and remain active
 # throughout the lifespan of the python process (until gpustat exists).
 _initialized: bool
 _init_error = None
 try:
-    rocml.smi_initialize()
+    amdsmi_init()
     _initialized = True
 
     def _shutdown():
-        rocml.smi_shutdown()
+        amdsmi_shut_down()
     atexit.register(_shutdown)
 
 except Exception as exc:
