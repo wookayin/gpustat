@@ -107,10 +107,10 @@ def nvmlDeviceGetDecoderUtilization(dev):
     return None
 
 def nvmlDeviceGetPowerUsage(dev):
-    return amdsmi_get_power_info(dev)["current_socket_power"]
+    return amdsmi_get_power_info(dev)["current_socket_power"] * 1000
 
 def nvmlDeviceGetEnforcedPowerLimit(dev):
-    return amdsmi_get_power_info(dev)["power_limit"]
+    return amdsmi_get_power_info(dev)["power_limit"] * 1000
 
 ComputeProcess = namedtuple('ComputeProcess', ['pid', 'usedGpuMemory'])
 
@@ -124,15 +124,15 @@ def nvmlDeviceGetComputeRunningProcesses(dev):
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
 
-def nvmlDeviceGetClkFreq(dev):
-    result = amdsmi_get_clock_info(dev, AmdSmiClkType.SYS)
+def nvmlDeviceGetClockInfo(dev, clk_type=AmdSmiClkType.SYS):
+    result = amdsmi_get_clock_info(dev, clk_type)
     if "clk" in result:
         return result["clk"]
     else:
         return result["cur_clk"]
 
-def nvmlDeviceGetClkFreqMax(dev):
-    result = amdsmi_get_clock_info(dev, AmdSmiClkType.SYS)
+def nvmlDeviceGetMaxClockInfo(dev, clk_type=AmdSmiClkType.SYS):
+    result = amdsmi_get_clock_info(dev, clk_type)
     return result["max_clk"]
 
 # Upon importing this module, let amdsmi be initialized and remain active
