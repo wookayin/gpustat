@@ -12,7 +12,35 @@ import warnings
 from collections import namedtuple
 
 
-from amdsmi import *
+
+
+
+try:
+    # Check for amdsmi.
+    from amdsmi import *
+except (ImportError, SyntaxError, RuntimeError) as e:
+    _amdsmi = sys.modules.get('amdsmi', None)
+
+    raise ImportError(textwrap.dedent(
+        """\
+        amdsmi is missing or an outdated version is installed.
+
+        The root cause: """ + str(e) +
+        """
+
+        Your pynvml installation: """ + repr(_amdsmi) +
+        """
+
+        -----------------------------------------------------------
+        (Suggested Fix) Please install amdsmi.
+        It should be installed with amdgpu. But if not, please see:
+        https://github.com/ROCm/amdsmi#manualmultiple-rocm-instance-python-library-install
+
+        apt install amd-smi-lib
+        cd /opt/rocm/share/amd_smi
+        python3 -m pip install --upgrade pip
+        python3 -m pip install --user .
+        """)) from e
 
 NVML_TEMPERATURE_GPU = 1
 
