@@ -94,7 +94,7 @@ def nvmlDeviceGetTemperature(dev, loc=NVML_TEMPERATURE_GPU):
     return amdsmi_get_temp_metric(dev, AmdSmiTemperatureType.HOTSPOT, AmdSmiTemperatureMetric.CURRENT)
 
 def nvmlSystemGetDriverVersion():
-    return ""
+    return amdsmi_get_gpu_driver_info(amdsmi_get_processor_handles()[0])["driver_version"]
 
 def check_driver_nvml_version(driver_version_str: str):
     """Show warnings when an incompatible driver is used."""
