@@ -481,7 +481,7 @@ class GPUStatCollection(Sequence[GPUStat]):
             assert isinstance(b, str)
             return b
 
-        def get_gpu_info(handle: NVMLHandle, index: int = None) -> NvidiaGPUInfo:
+        def get_gpu_info(handle: NVMLHandle) -> NvidiaGPUInfo:
             """Get one GPU information specified by nvml handle"""
 
             def safepcall(fn: Callable[[], Any], error_value: Any):
@@ -538,7 +538,7 @@ class GPUStatCollection(Sequence[GPUStat]):
                 return _wrapped
 
             gpu_info = NvidiaGPUInfo()
-            gpu_info['index'] = N.nvmlDeviceGetIndex(handle) if index is None else index
+            gpu_info['index'] = N.nvmlDeviceGetIndex(handle)
 
             gpu_info['name'] = _decode(N.nvmlDeviceGetName(handle))
             gpu_info['uuid'] = _decode(N.nvmlDeviceGetUUID(handle))
@@ -638,7 +638,7 @@ class GPUStatCollection(Sequence[GPUStat]):
         for index in gpus_to_query:
             try:
                 handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
-                gpu_info = get_gpu_info(handle, index)
+                gpu_info = get_gpu_info(handle)
                 gpu_stat = GPUStat(gpu_info)
             except N.NVMLError_Unknown as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)

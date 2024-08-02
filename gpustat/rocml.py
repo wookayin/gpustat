@@ -1,4 +1,4 @@
-"""Imports pyrsmi and wraps it in a pynvml compatible interface."""
+"""Imports amdsmi and wraps it in a pynvml compatible interface."""
 
 # pylint: disable=protected-access
 
@@ -16,8 +16,13 @@ from amdsmi import *
 
 NVML_TEMPERATURE_GPU = 1
 
+class NVMLError(Exception):
+    def __init__(self, message="ROCM Error"):
+        self.message = message
+        super().__init__(self.message)
+
 class NVMLError_Unknown(Exception):
-    def __init__(self, message="An unknown ROCMLError has occurred"):
+    def __init__(self, message="An unknown ROCM Error has occurred"):
         self.message = message
         super().__init__(self.message)
 
@@ -46,6 +51,9 @@ def nvmlDeviceGetHandleByIndex(dev):
     return amdsmi_get_processor_handles()[dev]
 
 def nvmlDeviceGetIndex(dev):
+    for i, handle in enumerate(amdsmi_get_processor_handles()):
+        if amdsmi_get_gpu_device_bdf(dev) == amdsmi_get_gpu_device_bdf(handle):
+            return i
     return -1
 
 def nvmlDeviceGetName(dev):
@@ -107,8 +115,11 @@ def nvmlDeviceGetEnforcedPowerLimit(dev):
 ComputeProcess = namedtuple('ComputeProcess', ['pid', 'usedGpuMemory'])
 
 def nvmlDeviceGetComputeRunningProcesses(dev):
-    results = amdsmi_get_gpu_process_list(dev)
-    return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
+    try:
+        results = amdsmi_get_gpu_process_list(dev)
+        return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
+    except Exception:
+        return []
 
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
@@ -124,7 +135,7 @@ def nvmlDeviceGetClkFreqMax(dev):
     result = amdsmi_get_clock_info(dev, AmdSmiClkType.SYS)
     return result["max_clk"]
 
-# Upon importing this module, let rocml be initialized and remain active
+# Upon importing this module, let amdsmi be initialized and remain active
 # throughout the lifespan of the python process (until gpustat exists).
 _initialized: bool
 _init_error = None

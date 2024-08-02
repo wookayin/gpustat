@@ -91,7 +91,7 @@ class DeployCommand(Command):
 
 install_requires = [
     'nvidia-ml-py>=12.535.108',  # see #107, #143, #161
-    'pyrsmi', #137
+    'amdsmi', #137
     'psutil>=5.6.0',    # GH-1447
     'blessed>=1.17.1',  # GH-126
     'typing_extensions',
