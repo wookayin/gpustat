@@ -26,7 +26,7 @@ except (ImportError, SyntaxError, RuntimeError) as e:
             + str(e)
             + """
 
-        Your pynvml installation: """
+        Your amdsmi installation: """
             + repr(_amdsmi)
             + """
 
@@ -165,11 +165,8 @@ ComputeProcess = namedtuple("ComputeProcess", ["pid", "usedGpuMemory"])
 
 
 def nvmlDeviceGetComputeRunningProcesses(dev):
-    try:
-        results = amdsmi_get_gpu_process_list(dev)
-        return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
-    except Exception:
-        return []
+    results = amdsmi_get_gpu_process_list(dev)
+    return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
 
 
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
