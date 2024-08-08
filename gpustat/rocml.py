@@ -142,11 +142,11 @@ def nvmlDeviceGetDecoderUtilization(dev):
 
 
 def nvmlDeviceGetPowerUsage(handle):
-    return handle.current_power / 1000000
+    return handle.current_power / 1000
 
 
 def nvmlDeviceGetEnforcedPowerLimit(handle):
-    return handle.power_limit / 1000000
+    return handle.power_limit / 1000
 
 
 ComputeProcess = namedtuple("ComputeProcess", ["pid", "usedGpuMemory"])
