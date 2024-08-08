@@ -82,7 +82,10 @@ def nvmlDeviceGetTemperature(handle, loc=NVML_TEMPERATURE_GPU):
 
 
 def nvmlSystemGetDriverVersion():
-    return ""
+    retval = rocmi.get_driver_version()
+    if retval is None:
+        return ""
+    return retval
 
 
 def check_driver_nvml_version(driver_version_str: str):
