@@ -1,4 +1,4 @@
-"""Imports amdsmi and wraps it in a pynvml compatible interface."""
+"""Imports rocmi and wraps it in a pynvml compatible interface."""
 
 # pylint: disable=protected-access
 
@@ -12,33 +12,26 @@ import warnings
 from collections import namedtuple
 
 try:
-    # Check for amdsmi.
-    from amdsmi import *
+    # Check for rocmi.
+    import rocmi
 except (ImportError, SyntaxError, RuntimeError) as e:
-    _amdsmi = sys.modules.get("amdsmi", None)
+    _rocmi = sys.modules.get("rocmi", None)
 
     raise ImportError(
         textwrap.dedent(
             """\
-        amdsmi is missing or an outdated version is installed.
+        rocmi is missing or an outdated version is installed.
 
         The root cause: """
             + str(e)
             + """
 
-        Your amdsmi installation: """
-            + repr(_amdsmi)
+        Your rocmi installation: """
+            + repr(_rocmi)
             + """
 
         -----------------------------------------------------------
-        (Suggested Fix) Please install amdsmi.
-        It should be installed with amdgpu. But if not, please see:
-        https://github.com/ROCm/amdsmi#manualmultiple-rocm-instance-python-library-install
-
-        apt install amd-smi-lib
-        cd /opt/rocm/share/amd_smi
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --user .
+        (Suggested Fix) Please install rocmi using pip.
         """
         )
     ) from e
@@ -64,49 +57,37 @@ class NVMLError_GpuIsLost(Exception):
         super().__init__(self.message)
 
 
-_stdout_dup = os.dup(1)
-_stderr_dup = os.dup(2)
-_silent_pipe = os.open(os.devnull, os.O_WRONLY)
-
-
-def silent_run(to_call, *args, **kwargs):
-    os.dup2(_silent_pipe, 1)
-    os.dup2(_silent_pipe, 2)
-    retval = to_call(*args, **kwargs)
-    os.dup2(_stdout_dup, 1)
-    os.dup2(_stderr_dup, 2)
-    return retval
-
-
 def nvmlDeviceGetCount():
-    return len(amdsmi_get_processor_handles())
+    return len(rocmi.get_devices())
 
 
 def nvmlDeviceGetHandleByIndex(dev):
-    return amdsmi_get_processor_handles()[dev]
+    return rocmi.get_devices()[dev]
 
 
-def nvmlDeviceGetIndex(dev):
-    for i, handle in enumerate(amdsmi_get_processor_handles()):
-        if amdsmi_get_gpu_device_bdf(dev) == amdsmi_get_gpu_device_bdf(handle):
+def nvmlDeviceGetIndex(handle):
+    for i, d in enumerate(rocmi.get_devices()):
+        if d.bus_id == handle.bus_id:
             return i
+
     return -1
 
 
-def nvmlDeviceGetName(dev):
-    return amdsmi_get_gpu_board_info(dev)["product_name"]
+def nvmlDeviceGetName(handle):
+    return handle.name
 
 
-def nvmlDeviceGetUUID(dev):
-    return amdsmi_get_gpu_device_uuid(dev)
+def nvmlDeviceGetUUID(handle):
+    return handle.unique_id
 
 
-def nvmlDeviceGetTemperature(dev, loc=NVML_TEMPERATURE_GPU):
-    return amdsmi_get_temp_metric(dev, AmdSmiTemperatureType.HOTSPOT, AmdSmiTemperatureMetric.CURRENT)
+def nvmlDeviceGetTemperature(handle, loc=NVML_TEMPERATURE_GPU):
+    metrics = handle.get_metrics()
+    return metrics.temperature_hotspot
 
 
 def nvmlSystemGetDriverVersion():
-    return amdsmi_get_gpu_driver_info(amdsmi_get_processor_handles()[0])["driver_version"]
+    return ""
 
 
 def check_driver_nvml_version(driver_version_str: str):
@@ -120,29 +101,38 @@ def check_driver_nvml_version(driver_version_str: str):
 
     driver_version = tuple(safeint(v) for v in driver_version_str.strip().split("."))
 
+    if len(driver_version) == 0 or driver_version <= (0,):
+        return
     if driver_version < (6, 7, 8):
         warnings.warn(f"This version of ROCM Driver {driver_version_str} is untested, ")
 
 
-def nvmlDeviceGetFanSpeed(dev):
+def nvmlDeviceGetFanSpeed(handle):
     try:
-        return amdsmi_get_gpu_fan_speed(dev, 0)
-    except Exception:
+        speed = handle.get_metrics().current_fan_speed
+    except AttributeError:
         return None
+
+    return speed
 
 
 MemoryInfo = namedtuple("MemoryInfo", ["total", "used"])
 
 
-def nvmlDeviceGetMemoryInfo(dev):
-    return MemoryInfo(total=amdsmi_get_gpu_memory_total(dev, AmdSmiMemoryType.VRAM), used=amdsmi_get_gpu_memory_usage(dev, AmdSmiMemoryType.VRAM))
+def nvmlDeviceGetMemoryInfo(handle):
+
+    return MemoryInfo(
+        total=handle.vram_total,
+        used=handle.vram_used,
+    )
 
 
 UtilizationRates = namedtuple("UtilizationRates", ["gpu"])
 
 
-def nvmlDeviceGetUtilizationRates(dev):
-    return UtilizationRates(gpu=amdsmi_get_gpu_activity(dev)["gfx_activity"])
+def nvmlDeviceGetUtilizationRates(handle):
+    metrics = handle.get_metrics()
+    return UtilizationRates(gpu=metrics.average_gfx_activity)
 
 
 def nvmlDeviceGetEncoderUtilization(dev):
@@ -153,49 +143,52 @@ def nvmlDeviceGetDecoderUtilization(dev):
     return None
 
 
-def nvmlDeviceGetPowerUsage(dev):
-    return amdsmi_get_power_info(dev)["current_socket_power"] * 1000
+def nvmlDeviceGetPowerUsage(handle):
+    return handle.current_power / 1000000
 
 
-def nvmlDeviceGetEnforcedPowerLimit(dev):
-    return amdsmi_get_power_info(dev)["power_limit"] * 1000
+def nvmlDeviceGetEnforcedPowerLimit(handle):
+    return handle.power_limit / 1000000
 
 
 ComputeProcess = namedtuple("ComputeProcess", ["pid", "usedGpuMemory"])
 
 
-def nvmlDeviceGetComputeRunningProcesses(dev):
-    results = amdsmi_get_gpu_process_list(dev)
-    return [ComputeProcess(pid=x.pid, usedGpuMemory=x.mem) for x in results]
+def nvmlDeviceGetComputeRunningProcesses(handle):
+    results = handle.get_processes()
+    return [ComputeProcess(pid=x.pid, usedGpuMemory=x.vram_usage) for x in results]
 
 
 def nvmlDeviceGetGraphicsRunningProcesses(dev):
     return None
 
 
-def nvmlDeviceGetClockInfo(dev, clk_type=AmdSmiClkType.SYS):
-    result = amdsmi_get_clock_info(dev, clk_type)
-    if "clk" in result:
-        return result["clk"]
-    else:
-        return result["cur_clk"]
+def nvmlDeviceGetClockInfo(handle):
+    metrics = handle.get_metrics()
+
+    try:
+        clk = metrics.current_gfxclks[0]
+    except AttributeError:
+        clk = metrics.current_gfxclk
+
+    return clk
 
 
-def nvmlDeviceGetMaxClockInfo(dev, clk_type=AmdSmiClkType.SYS):
-    result = amdsmi_get_clock_info(dev, clk_type)
-    return result["max_clk"]
+def nvmlDeviceGetMaxClockInfo(handle):
+    return handle.get_clock_info()[-1]
 
 
-# Upon importing this module, let amdsmi be initialized and remain active
+# Upon importing this module, let rocmi be initialized and remain active
 # throughout the lifespan of the python process (until gpustat exists).
 _initialized: bool
 _init_error = None
 try:
-    amdsmi_init()
+    # rocmi_init() No init required.
     _initialized = True
 
     def _shutdown():
-        amdsmi_shut_down()
+        # rocmi_shut_down() No shutdown required.
+        pass
 
     atexit.register(_shutdown)
 
