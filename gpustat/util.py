@@ -104,7 +104,7 @@ class DebugHelper:
             self._write('')
 
 
-def hasAMD():
+def has_AMD():
     try:
         subprocess.check_output('rocm-smi')
         return True

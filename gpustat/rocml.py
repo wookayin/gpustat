@@ -1,10 +1,5 @@
 """Imports rocmi and wraps it in a pynvml compatible interface."""
 
-# pylint: disable=protected-access
-
-import atexit
-import functools
-import os
 import sys
 import textwrap
 import warnings
@@ -178,25 +173,6 @@ def nvmlDeviceGetMaxClockInfo(handle):
     return handle.get_clock_info()[-1]
 
 
-# Upon importing this module, let rocmi be initialized and remain active
-# throughout the lifespan of the python process (until gpustat exists).
-_initialized: bool
-_init_error = None
-try:
-    # rocmi_init() No init required.
-    _initialized = True
-
-    def _shutdown():
-        # rocmi_shut_down() No shutdown required.
-        pass
-
-    atexit.register(_shutdown)
-
-except Exception as exc:
-    _initialized = False
-    _init_error = exc
-
-
+# rocmi does not require initialization
 def ensure_initialized():
-    if not _initialized:
-        raise _init_error  # type: ignore
+    pass

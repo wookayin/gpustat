@@ -31,7 +31,7 @@ from blessed import Terminal
 
 from gpustat import util
 
-if util.hasAMD():
+if util.has_AMD():
     from gpustat import rocml as nvml
     from gpustat import rocml as N
     from gpustat.rocml import check_driver_nvml_version
