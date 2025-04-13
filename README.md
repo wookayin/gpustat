@@ -6,7 +6,7 @@
 
 Just *less* than nvidia-smi?
 
-![Screenshot: gpustat -cp](https://github.com/wookayin/gpustat/blob/master/screenshot.png)
+![Screenshot: gpustat -cp](https://github.com/wookayin/gpustat/raw/master/screenshot.png)
 
 NOTE: This works with NVIDIA Graphics Devices only, no AMD support as of now. Contributions are welcome!
 
