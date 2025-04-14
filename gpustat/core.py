@@ -30,9 +30,15 @@ import psutil
 from blessed import Terminal
 
 from gpustat import util
-from gpustat import nvml
-from gpustat.nvml import pynvml as N
-from gpustat.nvml import check_driver_nvml_version
+
+if util.has_AMD():
+    from gpustat import rocml as nvml
+    from gpustat import rocml as N
+    from gpustat.rocml import check_driver_nvml_version
+else:
+    from gpustat import nvml
+    from gpustat.nvml import pynvml as N
+    from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
@@ -612,6 +618,8 @@ class GPUStatCollection(Sequence[GPUStat]):
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
             except N.NVMLError_GpuIsLost as e:
                 gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
+            except Exception as e:
+                gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
 
             if isinstance(gpu_stat, InvalidGPU):
                 log.add_exception("GPU %d" % index, gpu_stat.exception)
