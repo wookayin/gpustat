@@ -91,6 +91,20 @@ Options (Please see `gpustat --help` for more details):
   `export CUDA_DEVICE_ORDER=PCI_BUS_ID`.
 
 
+### Python API
+
+`gpustat` can also be used as a library to query GPUs from your own code:
+
+```python
+import gpustat
+
+stats = gpustat.new_query()   # a GPUStatCollection
+stats.print_formatted()       # same output as the `gpustat` command
+
+data = stats.jsonify()        # query result as a dict (same as `gpustat --json`)
+```
+
+
 [pypi_gpustat]: https://pypi.org/project/gpustat/
 [pypi_pynvml]: https://pypi.org/project/nvidia-ml-py/#history
 [pypi_wrong]: https://pypi.org/project/pynvml/
