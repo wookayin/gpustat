@@ -252,6 +252,111 @@ def scenario_failing_one_gpu(request: pytest.FixtureRequest):
 
 
 @pytest.fixture
+def scenario_unified_memory():
+    """Simulate a unified memory system like NVIDIA DGX Spark (GB10).
+
+    On these systems, nvmlDeviceGetMemoryInfo returns NVMLError_NotSupported
+    because GPU memory is shared with system RAM. However, per-process GPU
+    memory usage IS still available.
+    """
+    _configure_mock_unified_memory()
+
+
+@pytest.fixture
+def scenario_unified_memory_idle():
+    """Same as scenario_unified_memory, but no process is using the GPU."""
+    _configure_mock_unified_memory(idle=True)
+
+
+def _configure_mock_unified_memory(N=pynvml, idle=False,
+                                   name=b'NVIDIA GB10',
+                                   memory_error=None):
+    """Configure mock for a unified memory system (e.g., DGX Spark GB10).
+
+    If idle is True, the process lists are empty (no GPU consumers).
+    `name` is the reported device name; `memory_error` is the NVMLError
+    raised by nvmlDeviceGetMemoryInfo (default: NVMLError_NotSupported).
+    Host-level (Tegra) detection is disabled so results do not depend on
+    the machine running the tests.
+    """
+    if memory_error is None:
+        memory_error = N.NVMLError_NotSupported()
+    when(gpustat.core)._is_unified_memory_platform().thenReturn(False)
+
+    N.NVMLError.__hash__ = lambda _: 0
+    assert issubclass(N.NVMLError, BaseException)
+
+    unstub(N)
+
+    when(N).nvmlInit().thenReturn()
+    gpustat.nvml._initialized = True
+    when(N).nvmlShutdown().thenReturn()
+    when(N).nvmlSystemGetDriverVersion().thenReturn('580.95.05')
+
+    when(N)._nvmlGetFunctionPointer(...).thenCallOriginalImplementation()
+
+    NUM_GPUS = 1
+    when(N).nvmlDeviceGetCount().thenReturn(NUM_GPUS)
+
+    mock_process_t = namedtuple("Process_t", ['pid', 'usedGpuMemory'])
+
+    handle = mock_gpu_handles[0]
+
+    when(N).nvmlDeviceGetHandleByIndex(0).thenReturn(handle)
+    when(N).nvmlDeviceGetIndex(handle).thenReturn(0)
+    when(N).nvmlDeviceGetName(handle).thenReturn(name)
+    when(N).nvmlDeviceGetUUID(handle).thenReturn(
+        b'GPU-dgx-spark-uuid-0000-000000000000')
+
+    when(N).nvmlDeviceGetTemperature(handle, N.NVML_TEMPERATURE_GPU).thenReturn(54)
+    when(N).nvmlDeviceGetFanSpeed(handle).thenRaise(N.NVMLError_NotSupported())
+    when(N).nvmlDeviceGetPowerUsage(handle).thenReturn(5000)  # 5W
+    when(N).nvmlDeviceGetEnforcedPowerLimit(handle).thenRaise(N.NVMLError_NotSupported())
+
+    # Key: Memory info is NOT supported on unified memory systems
+    when(N).nvmlDeviceGetMemoryInfo(handle).thenRaise(memory_error)
+    when(N, strict=False).nvmlDeviceGetMemoryInfo(handle, version=ANY())\
+        .thenRaise(memory_error)
+
+    mock_utilization_t = namedtuple("Utilization_t", ['gpu', 'memory'])
+    when(N).nvmlDeviceGetUtilizationRates(handle)\
+        .thenReturn(mock_utilization_t(gpu=0, memory=0))
+    when(N).nvmlDeviceGetEncoderUtilization(handle).thenReturn([0, 167000])
+    when(N).nvmlDeviceGetDecoderUtilization(handle).thenReturn([0, 167000])
+
+    # Processes ARE available on unified memory systems
+    when(N).nvmlDeviceGetComputeRunningProcesses(handle).thenReturn([])
+    when(N).nvmlDeviceGetGraphicsRunningProcesses(handle).thenReturn([] if idle else [
+        mock_process_t(2955, 43*MB),   # Xorg
+        mock_process_t(3289, 18*MB),   # gnome-shell
+    ])
+
+    # Mock psutil for the processes
+    mock_pid_map_unified = {
+        2955: ('gdm', 'Xorg', 1.0, 0.5),
+        3289: ('gdm', 'gnome-shell', 0.5, 0.3),
+    }
+
+    def _MockedProcessUnified(pid):
+        if pid not in mock_pid_map_unified:
+            raise psutil.NoSuchProcess(pid=pid)
+        username, cmdline, cpuutil, memutil = mock_pid_map_unified[pid]
+        p: Any = mock(strict=True)
+        p.username = lambda: username
+        p.cmdline = lambda: [cmdline]
+        p.cpu_percent = lambda: cpuutil
+        p.memory_percent = lambda: memutil
+        p.pid = pid
+        return p
+
+    when(psutil).Process(...).thenAnswer(_MockedProcessUnified)
+    # System has 128GB RAM (like DGX Spark)
+    mock_memory_t = namedtuple("Memory_t", ['total', 'used'])
+    when(psutil).virtual_memory().thenReturn(
+        mock_memory_t(total=128 * 1024 * MB, used=0))  # 128 GB
+
+
+@pytest.fixture
 def nvidia_driver_version(request: pytest.FixtureRequest):
     """See NvidiaDriverMock."""
 
@@ -597,6 +702,111 @@ class TestGPUStat(object):
         # other gpus should be displayed normally
         assert '[0] GeForce GTX TITAN 0' in lines[0]
         assert '[1] GeForce GTX TITAN 1' in lines[1]
+
+    def test_unified_memory_dgx_spark(self, scenario_unified_memory):
+        """Test unified memory systems like NVIDIA DGX Spark (GB10).
+
+        On these systems, nvmlDeviceGetMemoryInfo is not supported because
+        GPU memory is shared with system RAM. gpustat should:
+        1. Use system memory as the total
+        2. Calculate used memory from the sum of process GPU memory
+        3. Set memory_unified flag to True
+        """
+        fp = StringIO()
+        gpustats = gpustat.new_query()
+        gpustats.print_formatted(fp=fp, show_header=False)
+
+        ret = fp.getvalue()
+        print("Unified memory output:")
+        print(ret)
+
+        line = remove_ansi_codes(ret).split('\n')[0]
+        print(f"Line: {line}")
+
+        # Verify GPU name is correct
+        assert '[0] NVIDIA GB10' in line, f"Expected GB10 in: {line}"
+
+        # Verify memory shows: used (61 = 43 + 18) / total (131072 = 128GB)
+        # Format: "   61 / 131072 MB"
+        assert '61 / 131072 MB' in line, f"Expected memory values in: {line}"
+
+        # Verify processes are displayed
+        assert 'gdm' in line, f"Expected gdm process in: {line}"
+        assert '43M' in line, f"Expected 43M in: {line}"
+        assert '18M' in line, f"Expected 18M in: {line}"
+
+        # Verify GPU stat properties
+        g: gpustat.GPUStat = gpustats.gpus[0]
+        assert g.name == 'NVIDIA GB10'
+        assert g.memory_unified is True, "Expected unified memory flag to be True"
+        assert g.memory_used == 61, f"Expected used=61, got {g.memory_used}"
+        assert g.memory_total == 131072, f"Expected total=131072, got {g.memory_total}"
+        assert g.memory_free == 131072 - 61
+        assert g.temperature == 54
+
+    def test_unified_memory_idle(self, scenario_unified_memory_idle):
+        """An idle unified memory GPU (no processes) should report 0 MB used,
+        not '??', since the (empty) process list is still known."""
+        fp = StringIO()
+        gpustats = gpustat.new_query()
+        gpustats.print_formatted(fp=fp, show_header=False)
+        line = remove_ansi_codes(fp.getvalue()).split('\n')[0]
+        print(f"Line: {line}")
+
+        assert '0 / 131072 MB' in line, f"Expected 0 used in: {line}"
+        assert '??' not in line, f"Unexpected ?? in: {line}"
+
+        g: gpustat.GPUStat = gpustats.gpus[0]
+        assert g.memory_unified is True
+        assert g.memory_used == 0
+        assert g.memory_total == 131072
+        assert g.memory_free == 131072
+
+    def test_memory_not_supported_discrete_gpu(self):
+        """NOT_SUPPORTED on a non-integrated device (e.g. MIG slice, driver
+        mismatch) must not be labeled unified: memory stays unknown."""
+        _configure_mock_unified_memory(name=b'NVIDIA A100-SXM4-40GB')
+        fp = StringIO()
+        gpustats = gpustat.new_query()
+        gpustats.print_formatted(fp=fp, show_header=False)
+        line = remove_ansi_codes(fp.getvalue()).split('\n')[0]
+        print(f"Line: {line}")
+
+        assert '?? /    ?? MB' in line, f"Expected unknown memory in: {line}"
+        g: gpustat.GPUStat = gpustats.gpus[0]
+        assert g.memory_unified is False
+        assert g.memory_used is None
+        assert g.memory_total is None
+        assert g.memory_free is None
+
+    @pytest.mark.parametrize('memory_error', [
+        pynvml.NVMLError_Unknown(),
+        pynvml.NVMLError_GpuIsLost(),
+        pynvml.NVMLError_NoPermission(),
+    ], ids=['unknown', 'gpu_is_lost', 'no_permission'])
+    def test_memory_other_nvml_error(self, memory_error):
+        """Any NVML error other than NOT_SUPPORTED, even on a known
+        integrated device, yields unknown memory and unified False."""
+        _configure_mock_unified_memory(memory_error=memory_error)
+        gpustats = gpustat.new_query()
+        g: gpustat.GPUStat = gpustats.gpus[0]
+        assert g.name == 'NVIDIA GB10'
+        assert g.memory_unified is False
+        assert g.memory_used is None
+        assert g.memory_total is None
+
+    @pytest.mark.parametrize('name, expected', [
+        ('NVIDIA GB10', True),
+        ('Jetson AGX Orin', True),
+        ('NVIDIA Tegra X1', True),
+        ('Xavier', True),
+        ('NVIDIA A100-SXM4-40GB', False),
+        ('GeForce RTX 4090', False),
+        ('NVIDIA GB100', False),
+    ])
+    def test_is_unified_memory_device_name(self, name, expected):
+        when(gpustat.core)._is_unified_memory_platform().thenReturn(False)
+        assert gpustat.core.is_unified_memory_device(name) is expected
 
     def test_attributes_and_items(self, scenario_basic):
         """Test whether each property of `GPUStat` instance is well-defined."""

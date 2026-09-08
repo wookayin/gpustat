@@ -21,6 +21,7 @@ import json
 import locale
 import os.path
 import platform
+import re
 import sys
 import time
 from datetime import datetime
@@ -36,6 +37,39 @@ from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
+
+# Integrated NVIDIA devices that share memory with the host (unified memory).
+UNIFIED_MEMORY_DEVICE_PATTERN = re.compile(
+    r'\b(gb10|jetson|orin|xavier|tegra)\b', re.IGNORECASE)
+
+
+def _is_unified_memory_platform() -> bool:
+    """Linux-only host signals for an integrated NVIDIA (Tegra/GB10) SoC."""
+    if not sys.platform.startswith('linux'):
+        return False
+    if os.path.exists('/etc/nv_tegra_release'):
+        return True
+    try:
+        with open('/proc/device-tree/compatible', 'rb') as f:
+            compat = f.read().lower()
+    except OSError:
+        return False
+    return b'nvidia' in compat and (b'tegra' in compat or b'gb10' in compat)
+
+
+def is_unified_memory_device(name: str) -> bool:
+    """Whether the GPU is an integrated device sharing memory with the host.
+
+    On such systems (e.g. DGX Spark GB10, Jetson) nvmlDeviceGetMemoryInfo is
+    not supported, and gpustat reports system RAM as 'memory.total'. That
+    total is an approximation of GPU-addressable memory, not dedicated VRAM.
+    A positive signal is required: a known device name, or on Linux a Tegra
+    release file / device-tree compatible string. A failing memory query
+    alone (lost GPU, driver mismatch, MIG, no device access) is not enough.
+    """
+    return bool(UNIFIED_MEMORY_DEVICE_PATTERN.search(name or '')) \
+        or _is_unified_memory_platform()
+
 
 DEFAULT_GPUNAME_WIDTH = 16
 
@@ -62,8 +96,9 @@ NvidiaGPUInfo = TypedDict('NvidiaGPUInfo', {
     'utilization.dec': Optional[Percentage],
     'power.draw': Optional[Watts],
     'enforced.power.limit': Optional[Watts],
-    'memory.used': Megabytes,
-    'memory.total': Megabytes,
+    'memory.used': Optional[Megabytes],  # Can be None for unified memory systems
+    'memory.total': Optional[Megabytes],  # Can be None for unified memory systems
+    'memory.unified': bool,  # True if using unified/shared memory (e.g., DGX Spark)
     'processes': Optional[List[ProcessInfo]],
 }, total=False) if TYPE_CHECKING else dict  # type: ignore
 
@@ -109,26 +144,39 @@ class GPUStat:
         return self.entry['name']
 
     @property
-    def memory_total(self) -> Megabytes:
-        """Returns the total memory (in MB) as an integer."""
-        return int(self.entry['memory.total'])
+    def memory_total(self) -> Optional[Megabytes]:
+        """Returns the total memory (in MB) as an integer,
+        or None if not available (e.g., unified memory systems)."""
+        v = self.entry.get('memory.total')
+        return int(v) if v is not None else None
 
     @property
-    def memory_used(self) -> Megabytes:
-        """Returns the occupied memory (in MB) as an integer."""
-        return int(self.entry['memory.used'])
+    def memory_used(self) -> Optional[Megabytes]:
+        """Returns the occupied memory (in MB) as an integer,
+        or None if not available (e.g., unified memory systems)."""
+        v = self.entry.get('memory.used')
+        return int(v) if v is not None else None
 
     @property
-    def memory_free(self) -> Megabytes:
-        """Returns the free (available) memory (in MB) as an integer."""
+    def memory_unified(self) -> bool:
+        """Returns True if the GPU uses unified/shared memory with the system
+        (e.g., NVIDIA DGX Spark with GB10, Tegra/Jetson devices)."""
+        return bool(self.entry.get('memory.unified', False))
+
+    @property
+    def memory_free(self) -> Optional[Megabytes]:
+        """Returns the free (available) memory (in MB) as an integer,
+        or None if not available."""
+        if self.memory_total is None or self.memory_used is None:
+            return None
         v = self.memory_total - self.memory_used
         return max(v, 0)
 
     @property
-    def memory_available(self) -> Megabytes:
+    def memory_available(self) -> Optional[Megabytes]:
         """Returns the available memory (in MB) as an integer.
 
-        Alias to memory_free.
+        Alias to memory_free, or None if not available.
         """
         return self.memory_free
 
@@ -524,9 +572,25 @@ class GPUStatCollection(Sequence[GPUStat]):
 
             # memory: in Bytes
             # Note that this is a compat-patched API (see gpustat.nvml)
-            memory = N.nvmlDeviceGetMemoryInfo(handle)
-            gpu_info['memory.used'] = int(memory.used) // MB
-            gpu_info['memory.total'] = int(memory.total) // MB
+            is_unified_memory = False
+            try:
+                memory = N.nvmlDeviceGetMemoryInfo(handle)
+                gpu_info['memory.used'] = int(memory.used) // MB
+                gpu_info['memory.total'] = int(memory.total) // MB
+            except N.NVMLError as e:
+                log.add_exception('nvmlDeviceGetMemoryInfo', e)
+                gpu_info['memory.used'] = None
+                gpu_info['memory.total'] = None
+                # Unified memory (e.g. DGX Spark GB10, Jetson): NVML reports
+                # NOT_SUPPORTED and the device is a known integrated part.
+                # Any other error, or no positive signal, stays unknown.
+                if isinstance(e, N.NVMLError_NotSupported) \
+                        and is_unified_memory_device(gpu_info['name']):
+                    is_unified_memory = True
+                    gpu_info['memory.total'] = \
+                        psutil.virtual_memory().total // MB
+
+            gpu_info['memory.unified'] = is_unified_memory
 
             # GPU utilization
             utilization = safenvml(N.nvmlDeviceGetUtilizationRates)(handle)
@@ -586,6 +650,16 @@ class GPUStatCollection(Sequence[GPUStat]):
                     cache_process: psutil.Process = GPUStatCollection.global_processes[pid]
                     process['cpu_percent'] = safepcall(cache_process.cpu_percent, 0)
             gpu_info['processes'] = processes
+
+            # For unified memory systems, calculate used memory from process list
+            # since nvmlDeviceGetMemoryInfo is not supported. An empty list
+            # means no process is using the GPU, so used memory is 0 (not ??).
+            if is_unified_memory and processes is not None:
+                total_process_mem = sum(
+                    p.get('gpu_memory_usage', 0) or 0
+                    for p in processes
+                )
+                gpu_info['memory.used'] = total_process_mem
 
             GPUStatCollection.clean_processes()
             return gpu_info
