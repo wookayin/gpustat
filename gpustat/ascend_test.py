@@ -1,10 +1,13 @@
 """Tests for the Huawei Ascend ``npu-smi`` backend."""
 
+import subprocess
 from types import SimpleNamespace
 
+import psutil
 import pytest
 
 from gpustat import ascend
+from gpustat import core
 from gpustat.core import GPUStatCollection
 
 
@@ -73,17 +76,23 @@ def test_parse_npu_smi_info():
 
 
 def test_query_filters_device_ids(monkeypatch):
+    run_calls = []
+
+    def run(*args, **kwargs):
+        run_calls.append((args, kwargs))
+        return SimpleNamespace(
+            stdout=NPU_SMI_INFO, stderr="", returncode=0)
+
     monkeypatch.setattr(ascend, "is_available", lambda: True)
     monkeypatch.setattr(ascend, "_enrich_processes", lambda devices: None)
-    monkeypatch.setattr(
-        ascend.subprocess,
-        "run",
-        lambda *args, **kwargs: SimpleNamespace(
-            stdout=NPU_SMI_INFO, stderr="", returncode=0),
-    )
+    monkeypatch.setattr(ascend.subprocess, "run", run)
 
     devices, _ = ascend.query([1])
     assert [device["index"] for device in devices] == [1]
+    assert run_calls[0][0] == (["npu-smi", "info"],)
+    assert run_calls[0][1]["check"] is True
+    assert run_calls[0][1]["timeout"] == 10
+    assert run_calls[0][1]["env"]["LC_ALL"] == "C"
 
     with pytest.raises(ascend.AscendSmiError,
                        match="Ascend device index not found: 2"):
@@ -112,3 +121,136 @@ def test_collection_uses_ascend_backend(monkeypatch):
     assert queried_ids == [[1]]
     assert stats.driver_version == "25.0.rc1.2"
     assert stats[0].name == "Ascend 910B2C"
+
+
+def test_query_reports_command_errors(monkeypatch):
+    monkeypatch.setattr(ascend, "is_available", lambda: False)
+    with pytest.raises(ascend.AscendSmiError,
+                       match="npu-smi was not found"):
+        ascend.query()
+
+    monkeypatch.setattr(ascend, "is_available", lambda: True)
+    monkeypatch.setattr(
+        ascend.subprocess,
+        "run",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            subprocess.CalledProcessError(1, args[0])),
+    )
+    with pytest.raises(ascend.AscendSmiError,
+                       match="failed to execute npu-smi info"):
+        ascend.query()
+
+
+def test_query_rejects_output_without_devices(monkeypatch):
+    monkeypatch.setattr(ascend, "is_available", lambda: True)
+    monkeypatch.setattr(
+        ascend.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            stdout="npu-smi Version: 25.0.rc1.2\n",
+            stderr="",
+            returncode=0,
+        ),
+    )
+
+    with pytest.raises(ascend.AscendSmiError,
+                       match="returned no Ascend devices"):
+        ascend.query()
+
+
+def test_enrich_processes(monkeypatch):
+    class Process:
+        def __init__(self, pid):
+            self.pid = pid
+            self.cpu_percent_calls = 0
+
+        def username(self):
+            return "alice"
+
+        def cmdline(self):
+            return ["/usr/bin/python", "worker.py"]
+
+        def cpu_percent(self):
+            self.cpu_percent_calls += 1
+            return 12.5 * self.cpu_percent_calls
+
+        def memory_percent(self):
+            return 25.0
+
+    processes = {}
+
+    def make_process(pid):
+        processes[pid] = Process(pid)
+        return processes[pid]
+
+    monkeypatch.setattr(ascend.psutil, "Process", make_process)
+    monkeypatch.setattr(
+        ascend.psutil, "virtual_memory",
+        lambda: SimpleNamespace(total=1024),
+    )
+    monkeypatch.setattr(ascend.time, "sleep", lambda _: None)
+
+    devices, _ = ascend.parse_npu_smi_output(NPU_SMI_INFO)
+    process = devices[0]["processes"][0]
+    assert process["username"] == "alice"
+    assert process["command"] == "python"
+    assert process["full_command"] == ["/usr/bin/python", "worker.py"]
+    assert process["cpu_percent"] == 25.0
+    assert process["cpu_memory_usage"] == 256
+
+
+def test_enrich_processes_uses_npu_smi_name_for_missing_pid(monkeypatch):
+    def missing_process(pid):
+        raise psutil.NoSuchProcess(pid)
+
+    monkeypatch.setattr(ascend.psutil, "Process", missing_process)
+    monkeypatch.setattr(ascend.time, "sleep", lambda _: None)
+
+    devices, _ = ascend.parse_npu_smi_output(NPU_SMI_INFO)
+    process = devices[0]["processes"][0]
+    assert process["username"] == "?"
+    assert process["command"] == "rayWorkerDict"
+    assert process["full_command"] == ["rayWorkerDict"]
+    assert process["cpu_percent"] == 0.0
+    assert process["cpu_memory_usage"] == 0.0
+
+
+def test_auto_backend_falls_back_to_ascend(monkeypatch):
+    devices, driver_version = ascend.parse_npu_smi_output(
+        NPU_SMI_INFO, enrich_processes=False)
+
+    def unavailable_nvml():
+        raise core.N.NVMLError_Unknown()
+
+    monkeypatch.setattr(core.nvml, "ensure_initialized", unavailable_nvml)
+    monkeypatch.setattr(ascend, "is_available", lambda: True)
+    monkeypatch.setattr(
+        ascend, "query", lambda ids: (devices, driver_version))
+
+    stats = GPUStatCollection.new_query()
+    assert len(stats) == 2
+    assert stats[0].name == "Ascend 910B2C"
+
+
+def test_auto_backend_prefers_nvidia(monkeypatch):
+    expected = object()
+    monkeypatch.setattr(core.nvml, "ensure_initialized", lambda: None)
+    monkeypatch.setattr(core.N, "nvmlDeviceGetCount", lambda: 1)
+    monkeypatch.setattr(
+        GPUStatCollection,
+        "_new_query_nvidia",
+        lambda debug=False, id=None: expected,
+    )
+    monkeypatch.setattr(
+        ascend, "is_available",
+        lambda: pytest.fail("Ascend should not be queried"),
+    )
+
+    assert GPUStatCollection.new_query() is expected
+
+
+def test_rejects_unknown_backend():
+    with pytest.raises(ValueError, match="Unknown backend: tpu"):
+        GPUStatCollection.new_query(backend="tpu")
+    with pytest.raises(ValueError, match="Unknown backend: tpu"):
+        core.gpu_count(backend="tpu")
