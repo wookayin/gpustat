@@ -51,6 +51,7 @@ pip install git+https://github.com/wookayin/gpustat.git@master
 - gpustat<1.0: Compatible with python 2.7 and >=3.4
 - gpustat 1.0: [Python >= 3.4][gh-issue-66]
 - gpustat 1.1: Python >= 3.6
+- gpustat 1.2+: Python >= 3.6 (tested through Python 3.16 development builds)
 
 
 Usage

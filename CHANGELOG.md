@@ -6,7 +6,7 @@ Changelog for `gpustat`
 - Non-official pynvml is no longer allowed (#153)
 - Internal refactoring for display and formatting
 - Improve CI and release workflow
-- Support Python 3.12 by running CI tests.
+- Add test coverage for Python 3.13 through 3.16 development builds.
 
 
 ## [v1.1.1] (2023/8/22)
