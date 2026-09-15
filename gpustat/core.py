@@ -30,6 +30,7 @@ import psutil
 from blessed import Terminal
 
 from gpustat import util
+from gpustat import ascend
 from gpustat import nvml
 from gpustat.nvml import pynvml as N
 from gpustat.nvml import check_driver_nvml_version
@@ -443,8 +444,52 @@ class GPUStatCollection(Sequence[GPUStat]):
                 del GPUStatCollection.global_processes[pid]
 
     @staticmethod
-    def new_query(debug=False, id=None) -> 'GPUStatCollection':
-        """Query the information of all the GPUs on local machine"""
+    def new_query(debug=False, id=None,
+                  backend='auto') -> 'GPUStatCollection':
+        """Query accelerator information from NVIDIA NVML or Ascend npu-smi."""
+        if backend not in ('auto', 'nvidia', 'ascend'):
+            raise ValueError("Unknown backend: {}".format(backend))
+
+        if backend == 'ascend':
+            return GPUStatCollection._new_query_ascend(id=id)
+        if backend == 'nvidia':
+            return GPUStatCollection._new_query_nvidia(debug=debug, id=id)
+
+        nvml_error = None
+        try:
+            nvml.ensure_initialized()
+            if N.nvmlDeviceGetCount() > 0:
+                return GPUStatCollection._new_query_nvidia(
+                    debug=debug, id=id)
+        except N.NVMLError as error:
+            nvml_error = error
+
+        if ascend.is_available():
+            return GPUStatCollection._new_query_ascend(id=id)
+        if nvml_error is not None:
+            raise nvml_error
+        return GPUStatCollection._new_query_nvidia(debug=debug, id=id)
+
+    @staticmethod
+    def _new_query_ascend(id=None) -> 'GPUStatCollection':
+        if id is None:
+            device_ids = None
+        elif isinstance(id, str):
+            device_ids = [int(i) for i in id.split(',')]
+        elif isinstance(id, Sequence):
+            device_ids = [int(i) for i in id]
+        else:
+            raise TypeError(f"Unknown id: {id}")
+
+        device_entries, driver_version = ascend.query(device_ids)
+        return GPUStatCollection(
+            [GPUStat(entry) for entry in device_entries],
+            driver_version=driver_version,
+        )
+
+    @staticmethod
+    def _new_query_nvidia(debug=False, id=None) -> 'GPUStatCollection':
+        """Query the information of all NVIDIA GPUs on the local machine."""
 
         nvml.ensure_initialized()
         log = util.DebugHelper()
@@ -745,23 +790,41 @@ class GPUStatCollection(Sequence[GPUStat]):
         fp.flush()
 
 
-def new_query() -> GPUStatCollection:
+def new_query(backend='auto', id=None) -> GPUStatCollection:
     '''
-    Obtain a new GPUStatCollection instance by querying nvidia-smi
-    to get the list of GPUs and running process information.
+    Obtain a new GPUStatCollection instance by querying the selected backend
+    to get the list of accelerators and running process information.
     '''
-    return GPUStatCollection.new_query()
+    return GPUStatCollection.new_query(backend=backend, id=id)
 
 
-def gpu_count() -> int:
-    '''Return the number of available GPUs in the system.'''
+def gpu_count(backend='auto') -> int:
+    '''Return the number of available accelerators in the system.'''
+    if backend not in ('auto', 'nvidia', 'ascend'):
+        raise ValueError("Unknown backend: {}".format(backend))
+
     try:
-        nvml.ensure_initialized()
-        return N.nvmlDeviceGetCount()
-    except N.NVMLError:
+        if backend == 'nvidia':
+            nvml.ensure_initialized()
+            return N.nvmlDeviceGetCount()
+
+        if backend == 'auto':
+            try:
+                nvml.ensure_initialized()
+                count = N.nvmlDeviceGetCount()
+                if count > 0:
+                    return count
+            except N.NVMLError:
+                pass
+
+        if ascend.is_available():
+            devices, _ = ascend.query(enrich_processes=False)
+            return len(devices)
+        return 0
+    except (N.NVMLError, ascend.AscendSmiError):
         return 0  # fallback
 
 
-def is_available() -> bool:
-    '''Return True if the NVML library and GPU devices are available.'''
-    return gpu_count() > 0
+def is_available(backend='auto') -> bool:
+    '''Return True if the selected backend has accelerator devices.'''
+    return gpu_count(backend=backend) > 0
