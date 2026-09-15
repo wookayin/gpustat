@@ -57,9 +57,11 @@ def get_complete_for_one_or_zero(input):
 def print_gpustat(*, id=None, json=False, debug=False, **kwargs):
     '''Display the GPU query results into standard output.'''
     try:
-        gpu_stats = GPUStatCollection.new_query(debug=debug, id=id)
+        backend = kwargs.pop('backend', 'auto')
+        gpu_stats = GPUStatCollection.new_query(
+            debug=debug, id=id, backend=backend)
     except Exception as e:
-        sys.stderr.write('Error on querying NVIDIA devices. '
+        sys.stderr.write('Error on querying accelerator devices. '
                          'Use --debug flag to see more details.\n')
         term = Terminal(stream=sys.stderr)
         sys.stderr.write(term.red(str(e)) + '\n')
@@ -139,6 +141,10 @@ def main(*argv):
     parser_color.add_argument('--no-color', action='store_true',
                               help='Suppress colored output')
     parser.add_argument('--id', help='Target a specific GPU (index).')
+    parser.add_argument(
+        '--backend', choices=('auto', 'nvidia', 'ascend'), default='auto',
+        help='Device query backend (default: auto)'
+    )
     parser.add_argument('-a', '--show-all', action='store_true',
                         help='Display all gpu properties above')
     parser.add_argument('-c', '--show-cmd', action='store_true',
