@@ -222,6 +222,7 @@ def test_auto_backend_falls_back_to_ascend(monkeypatch):
     def unavailable_nvml():
         raise core.N.NVMLError_Unknown()
 
+    monkeypatch.setattr(core.util, "has_AMD", lambda: False)
     monkeypatch.setattr(core.nvml, "ensure_initialized", unavailable_nvml)
     monkeypatch.setattr(ascend, "is_available", lambda: True)
     monkeypatch.setattr(
@@ -234,12 +235,19 @@ def test_auto_backend_falls_back_to_ascend(monkeypatch):
 
 def test_auto_backend_prefers_nvidia(monkeypatch):
     expected = object()
+    selected_backends = []
+
+    def query_nvml(backend, debug=False, id=None):
+        selected_backends.append(backend)
+        return expected
+
+    monkeypatch.setattr(core.util, "has_AMD", lambda: False)
     monkeypatch.setattr(core.nvml, "ensure_initialized", lambda: None)
     monkeypatch.setattr(core.N, "nvmlDeviceGetCount", lambda: 1)
     monkeypatch.setattr(
         GPUStatCollection,
-        "_new_query_nvidia",
-        lambda debug=False, id=None: expected,
+        "_new_query_nvml",
+        query_nvml,
     )
     monkeypatch.setattr(
         ascend, "is_available",
@@ -247,6 +255,59 @@ def test_auto_backend_prefers_nvidia(monkeypatch):
     )
 
     assert GPUStatCollection.new_query() is expected
+    assert selected_backends == ["nvidia"]
+
+
+def test_auto_backend_preserves_amd_first_detection(monkeypatch):
+    expected = object()
+    selected_backends = []
+
+    def query_nvml(backend, debug=False, id=None):
+        selected_backends.append(backend)
+        return expected
+
+    monkeypatch.setattr(core.util, "has_AMD", lambda: True)
+    monkeypatch.setattr(
+        GPUStatCollection,
+        "_new_query_nvml",
+        query_nvml,
+    )
+    monkeypatch.setattr(
+        ascend, "is_available",
+        lambda: pytest.fail("Ascend should not be queried"),
+    )
+
+    assert GPUStatCollection.new_query() is expected
+    assert selected_backends == ["amd"]
+
+
+def test_explicit_amd_backend(monkeypatch):
+    selected_backends = []
+
+    def query_nvml(backend, debug=False, id=None):
+        selected_backends.append((backend, id))
+        return object()
+
+    monkeypatch.setattr(
+        GPUStatCollection,
+        "_new_query_nvml",
+        query_nvml,
+    )
+
+    GPUStatCollection.new_query(backend="amd", id="1")
+    assert selected_backends == [("amd", "1")]
+
+
+def test_gpu_count_uses_selected_nvml_backend(monkeypatch):
+    backend = SimpleNamespace(ensure_initialized=lambda: None)
+    api = SimpleNamespace(nvmlDeviceGetCount=lambda: 4)
+    monkeypatch.setattr(
+        core,
+        "_get_nvml_backend",
+        lambda name: (backend, api, None),
+    )
+
+    assert core.gpu_count(backend="amd") == 4
 
 
 def test_rejects_unknown_backend():

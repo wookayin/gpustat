@@ -31,19 +31,24 @@ import psutil
 from blessed import Terminal
 
 from gpustat import ascend
+from gpustat import nvml
 from gpustat import util
-
-if util.has_AMD():
-    from gpustat import rocml as nvml
-    from gpustat import rocml as N
-    from gpustat.rocml import check_driver_nvml_version
-else:
-    from gpustat import nvml
-    from gpustat.nvml import pynvml as N
-    from gpustat.nvml import check_driver_nvml_version
+from gpustat.nvml import pynvml as N
+from gpustat.nvml import check_driver_nvml_version
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
+SUPPORTED_BACKENDS = ('auto', 'nvidia', 'amd', 'ascend')
+
+
+def _get_nvml_backend(backend):
+    """Return the NVML-compatible implementation for a GPU backend."""
+    if backend == 'nvidia':
+        return nvml, N, check_driver_nvml_version
+    if backend == 'amd':
+        from gpustat import rocml
+        return rocml, rocml, rocml.check_driver_nvml_version
+    raise ValueError("Backend is not NVML-compatible: {}".format(backend))
 
 # Integrated NVIDIA devices that share memory with the host (unified memory).
 UNIFIED_MEMORY_DEVICE_PATTERN = re.compile(
@@ -91,8 +96,8 @@ Percentage = int
 Watts = int
 ProcessInfo = Dict[str, Any]
 
-# We use the same key/spec as `nvidia-smi --query-help-gpu`
-NvidiaGPUInfo = TypedDict('NvidiaGPUInfo', {
+# Backends expose a common schema based on `nvidia-smi --query-help-gpu`.
+GPUInfo = TypedDict('GPUInfo', {
     'index': int,
     'name': str,
     'uuid': str,
@@ -112,7 +117,7 @@ NvidiaGPUInfo = TypedDict('NvidiaGPUInfo', {
 
 class GPUStat:
 
-    def __init__(self, entry: NvidiaGPUInfo):
+    def __init__(self, entry: GPUInfo):
         if not isinstance(entry, dict):
             raise TypeError(
                 'entry should be a dict, {} given'.format(type(entry))
@@ -500,29 +505,36 @@ class GPUStatCollection(Sequence[GPUStat]):
     @staticmethod
     def new_query(debug=False, id=None,
                   backend='auto') -> 'GPUStatCollection':
-        """Query accelerator information from NVIDIA NVML or Ascend npu-smi."""
-        if backend not in ('auto', 'nvidia', 'ascend'):
+        """Query accelerator information using the selected backend."""
+        if backend not in SUPPORTED_BACKENDS:
             raise ValueError("Unknown backend: {}".format(backend))
 
+        if backend == 'auto':
+            backend = GPUStatCollection._detect_backend()
         if backend == 'ascend':
             return GPUStatCollection._new_query_ascend(id=id)
-        if backend == 'nvidia':
-            return GPUStatCollection._new_query_nvidia(debug=debug, id=id)
+        return GPUStatCollection._new_query_nvml(
+            backend=backend, debug=debug, id=id)
 
-        nvml_error = None
+    @staticmethod
+    def _detect_backend():
+        """Detect a usable backend, preserving AMD-first behavior."""
+        if util.has_AMD():
+            return 'amd'
+
+        nvidia_error = None
         try:
             nvml.ensure_initialized()
             if N.nvmlDeviceGetCount() > 0:
-                return GPUStatCollection._new_query_nvidia(
-                    debug=debug, id=id)
+                return 'nvidia'
         except N.NVMLError as error:
-            nvml_error = error
+            nvidia_error = error
 
         if ascend.is_available():
-            return GPUStatCollection._new_query_ascend(id=id)
-        if nvml_error is not None:
-            raise nvml_error
-        return GPUStatCollection._new_query_nvidia(debug=debug, id=id)
+            return 'ascend'
+        if nvidia_error is not None:
+            raise nvidia_error
+        return 'nvidia'
 
     @staticmethod
     def _new_query_ascend(id=None) -> 'GPUStatCollection':
@@ -542,10 +554,12 @@ class GPUStatCollection(Sequence[GPUStat]):
         )
 
     @staticmethod
-    def _new_query_nvidia(debug=False, id=None) -> 'GPUStatCollection':
-        """Query the information of all NVIDIA GPUs on the local machine."""
+    def _new_query_nvml(backend, debug=False, id=None) -> 'GPUStatCollection':
+        """Query a backend that implements the NVML-compatible interface."""
+        nvml_backend, N_backend, check_driver_version = \
+            _get_nvml_backend(backend)
 
-        nvml.ensure_initialized()
+        nvml_backend.ensure_initialized()
         log = util.DebugHelper()
 
         def _decode(b: Union[str, bytes]) -> str:
@@ -554,7 +568,7 @@ class GPUStatCollection(Sequence[GPUStat]):
             assert isinstance(b, str)
             return b
 
-        def get_gpu_info(handle: NVMLHandle) -> NvidiaGPUInfo:
+        def get_gpu_info(handle: NVMLHandle) -> GPUInfo:
             """Get one GPU information specified by nvml handle"""
 
             def safepcall(fn: Callable[[], Any], error_value: Any):
@@ -605,37 +619,40 @@ class GPUStatCollection(Sequence[GPUStat]):
                 def _wrapped(*args, **kwargs):
                     try:
                         return fn(*args, **kwargs)
-                    except N.NVMLError as e:
+                    except N_backend.NVMLError as e:
                         log.add_exception(fn.__name__, e)
                         return None  # Not supported
                 return _wrapped
 
-            gpu_info = NvidiaGPUInfo()
-            gpu_info['index'] = N.nvmlDeviceGetIndex(handle)
+            gpu_info = GPUInfo()
+            gpu_info['index'] = N_backend.nvmlDeviceGetIndex(handle)
 
-            gpu_info['name'] = _decode(N.nvmlDeviceGetName(handle))
-            gpu_info['uuid'] = _decode(N.nvmlDeviceGetUUID(handle))
+            gpu_info['name'] = _decode(N_backend.nvmlDeviceGetName(handle))
+            gpu_info['uuid'] = _decode(N_backend.nvmlDeviceGetUUID(handle))
 
             gpu_info['temperature.gpu'] = safenvml(
-                N.nvmlDeviceGetTemperature)(handle, N.NVML_TEMPERATURE_GPU)
+                N_backend.nvmlDeviceGetTemperature)(
+                    handle, N_backend.NVML_TEMPERATURE_GPU)
 
-            gpu_info['fan.speed'] = safenvml(N.nvmlDeviceGetFanSpeed)(handle)
+            gpu_info['fan.speed'] = safenvml(
+                N_backend.nvmlDeviceGetFanSpeed)(handle)
 
             # memory: in Bytes
             # Note that this is a compat-patched API (see gpustat.nvml)
             is_unified_memory = False
             try:
-                memory = N.nvmlDeviceGetMemoryInfo(handle)
+                memory = N_backend.nvmlDeviceGetMemoryInfo(handle)
                 gpu_info['memory.used'] = int(memory.used) // MB
                 gpu_info['memory.total'] = int(memory.total) // MB
-            except N.NVMLError as e:
+            except N_backend.NVMLError as e:
                 log.add_exception('nvmlDeviceGetMemoryInfo', e)
                 gpu_info['memory.used'] = None
                 gpu_info['memory.total'] = None
                 # Unified memory (e.g. DGX Spark GB10, Jetson): NVML reports
                 # NOT_SUPPORTED and the device is a known integrated part.
                 # Any other error, or no positive signal, stays unknown.
-                if isinstance(e, N.NVMLError_NotSupported) \
+                if hasattr(N_backend, 'NVMLError_NotSupported') \
+                        and isinstance(e, N_backend.NVMLError_NotSupported) \
                         and is_unified_memory_device(gpu_info['name']):
                     is_unified_memory = True
                     gpu_info['memory.total'] = \
@@ -644,25 +661,31 @@ class GPUStatCollection(Sequence[GPUStat]):
             gpu_info['memory.unified'] = is_unified_memory
 
             # GPU utilization
-            utilization = safenvml(N.nvmlDeviceGetUtilizationRates)(handle)
+            utilization = safenvml(
+                N_backend.nvmlDeviceGetUtilizationRates)(handle)
             gpu_info['utilization.gpu'] = int(utilization.gpu) if utilization is not None else None
 
-            utilization = safenvml(N.nvmlDeviceGetEncoderUtilization)(handle)
+            utilization = safenvml(
+                N_backend.nvmlDeviceGetEncoderUtilization)(handle)
             gpu_info['utilization.enc'] = utilization[0] if utilization is not None else None
 
-            utilization = safenvml(N.nvmlDeviceGetDecoderUtilization)(handle)
+            utilization = safenvml(
+                N_backend.nvmlDeviceGetDecoderUtilization)(handle)
             gpu_info['utilization.dec'] = utilization[0] if utilization is not None else None
 
             # Power
-            power = safenvml(N.nvmlDeviceGetPowerUsage)(handle)
+            power = safenvml(N_backend.nvmlDeviceGetPowerUsage)(handle)
             gpu_info['power.draw'] = power // 1000 if power is not None else None
 
-            power_limit = safenvml(N.nvmlDeviceGetEnforcedPowerLimit)(handle)
+            power_limit = safenvml(
+                N_backend.nvmlDeviceGetEnforcedPowerLimit)(handle)
             gpu_info['enforced.power.limit'] = power_limit // 1000 if power_limit is not None else None
 
             # Processes
-            nv_comp_processes = safenvml(N.nvmlDeviceGetComputeRunningProcesses)(handle)
-            nv_graphics_processes = safenvml(N.nvmlDeviceGetGraphicsRunningProcesses)(handle)
+            nv_comp_processes = safenvml(
+                N_backend.nvmlDeviceGetComputeRunningProcesses)(handle)
+            nv_graphics_processes = safenvml(
+                N_backend.nvmlDeviceGetGraphicsRunningProcesses)(handle)
 
             if nv_comp_processes is None and nv_graphics_processes is None:
                 processes = None
@@ -717,7 +740,7 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         # 1. get the list of gpu and status
         gpu_list = []
-        device_count = N.nvmlDeviceGetCount()
+        device_count = N_backend.nvmlDeviceGetCount()
 
         if id is None:
             gpus_to_query = range(device_count)
@@ -730,12 +753,13 @@ class GPUStatCollection(Sequence[GPUStat]):
 
         for index in gpus_to_query:
             try:
-                handle: NVMLHandle = N.nvmlDeviceGetHandleByIndex(index)
+                handle: NVMLHandle = \
+                    N_backend.nvmlDeviceGetHandleByIndex(index)
                 gpu_info = get_gpu_info(handle)
                 gpu_stat = GPUStat(gpu_info)
-            except N.NVMLError_Unknown as e:
+            except N_backend.NVMLError_Unknown as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
-            except N.NVMLError_GpuIsLost as e:
+            except N_backend.NVMLError_GpuIsLost as e:
                 gpu_stat = InvalidGPU(index, "((GPU is lost))", e)
             except Exception as e:
                 gpu_stat = InvalidGPU(index, "((Unknown Error))", e)
@@ -747,9 +771,10 @@ class GPUStatCollection(Sequence[GPUStat]):
         # 2. additional info (driver version, etc).
         # TODO: check this only once, no need to call multiple times
         try:
-            driver_version = _decode(N.nvmlSystemGetDriverVersion())
-            check_driver_nvml_version(driver_version)
-        except N.NVMLError as e:
+            driver_version = _decode(
+                N_backend.nvmlSystemGetDriverVersion())
+            check_driver_version(driver_version)
+        except N_backend.NVMLError as e:
             log.add_exception("driver_version", e)
             driver_version = None    # N/A
 
@@ -882,28 +907,20 @@ def new_query(backend='auto', id=None) -> GPUStatCollection:
 
 def gpu_count(backend='auto') -> int:
     '''Return the number of available accelerators in the system.'''
-    if backend not in ('auto', 'nvidia', 'ascend'):
+    if backend not in SUPPORTED_BACKENDS:
         raise ValueError("Unknown backend: {}".format(backend))
 
     try:
-        if backend == 'nvidia':
-            nvml.ensure_initialized()
-            return N.nvmlDeviceGetCount()
-
         if backend == 'auto':
-            try:
-                nvml.ensure_initialized()
-                count = N.nvmlDeviceGetCount()
-                if count > 0:
-                    return count
-            except N.NVMLError:
-                pass
-
-        if ascend.is_available():
+            backend = GPUStatCollection._detect_backend()
+        if backend == 'ascend':
             devices, _ = ascend.query(enrich_processes=False)
             return len(devices)
-        return 0
-    except (N.NVMLError, ascend.AscendSmiError):
+
+        nvml_backend, N_backend, _ = _get_nvml_backend(backend)
+        nvml_backend.ensure_initialized()
+        return N_backend.nvmlDeviceGetCount()
+    except Exception:
         return 0  # fallback
 
 

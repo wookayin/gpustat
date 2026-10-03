@@ -142,7 +142,8 @@ def main(*argv):
                               help='Suppress colored output')
     parser.add_argument('--id', help='Target a specific GPU (index).')
     parser.add_argument(
-        '--backend', choices=('auto', 'nvidia', 'ascend'), default='auto',
+        '--backend', choices=('auto', 'nvidia', 'amd', 'ascend'),
+        default='auto',
         help='Device query backend (default: auto)'
     )
     parser.add_argument('-a', '--show-all', action='store_true',
