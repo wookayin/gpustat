@@ -8,7 +8,11 @@ Just *less* than nvidia-smi?
 
 ![Screenshot: gpustat -cp](https://github.com/wookayin/gpustat/raw/master/screenshot.png)
 
-NOTE: This works with NVIDIA Graphics Devices only, no AMD support as of now. Contributions are welcome!
+Supported accelerators:
+
+* NVIDIA GPUs through NVML (`nvidia-ml-py`)
+* AMD GPUs through ROCm SMI (`rocmi`)
+* Huawei Ascend 910B NPUs through `npu-smi`
 
 Self-Promotion: A web interface of `gpustat` is available (in alpha)! Check out [gpustat-web][gpustat-web].
 
@@ -51,7 +55,7 @@ pip install git+https://github.com/wookayin/gpustat.git@master
 - gpustat<1.0: Compatible with python 2.7 and >=3.4
 - gpustat 1.0: [Python >= 3.4][gh-issue-66]
 - gpustat 1.1: Python >= 3.6
-- gpustat 1.2+: Python >= 3.6 (tested through Python 3.16 development builds)
+- gpustat 1.2+: Python >= 3.6 (tested through Python 3.15 prereleases)
 
 
 Usage
@@ -72,6 +76,7 @@ Options (Please see `gpustat --help` for more details):
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `-a`, `--show-all`   : Display all gpu properties above
 * `--id`              : Target and query specific GPUs only with the specified indices (e.g. `--id 0,1,2`)
+* `--backend`         : Select `auto`, `nvidia`, `amd`, or `ascend` (default: `auto`)
 * `--no-processes`    : Do not display process information (user, memory) ([#133][gh-issue-133])
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates.
 * `--json`             : JSON Output ([#10][gh-issue-10])
@@ -81,6 +86,7 @@ Options (Please see `gpustat --help` for more details):
 ### Tips
 
 - Try `gpustat --debug` if something goes wrong.
+- Ascend 910B support requires the driver-provided `npu-smi` command in `PATH`.
 - To periodically watch, try `gpustat --watch` or `gpustat -i` ([#41][gh-issue-41]).
     - For older versions, one may use `watch --color -n1.0 gpustat --color`.
 - Running `nvidia-smi daemon` (root privilege required) will make querying GPUs much **faster** and use less CPU ([#54][gh-issue-54]).
@@ -103,6 +109,13 @@ stats = gpustat.new_query()   # a GPUStatCollection
 stats.print_formatted()       # same output as the `gpustat` command
 
 data = stats.jsonify()        # query result as a dict (same as `gpustat --json`)
+```
+
+The backend is detected automatically, or can be selected explicitly:
+
+```python
+stats = gpustat.new_query(backend="amd")
+stats = gpustat.new_query(backend="ascend", id=[0, 1])
 ```
 
 

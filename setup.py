@@ -107,13 +107,13 @@ setup(
     name='gpustat',
     version=__version__,
     license='MIT',
-    description='An utility to monitor NVIDIA GPU status and usage',
+    description='A utility to monitor GPU and NPU status and usage',
     long_description=read_readme(),
     long_description_content_type='text/markdown',
     url='https://github.com/wookayin/gpustat',
     author='Jongwook Choi',
     author_email='wookayin@gmail.com',
-    keywords='nvidia-smi gpu cuda monitoring gpustat',
+    keywords='nvidia-smi rocm-smi npu-smi gpu npu cuda rocm ascend monitoring gpustat',
     classifiers=[
         # https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 5 - Production/Stable',
@@ -129,7 +129,6 @@ setup(
         'Programming Language :: Python :: 3.13',
         'Programming Language :: Python :: 3.14',
         'Programming Language :: Python :: 3.15',
-        'Programming Language :: Python :: 3.16',
         'Topic :: System :: Monitoring',
     ],
     packages=['gpustat'],
