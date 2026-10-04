@@ -5,6 +5,7 @@ Changelog for `gpustat`
 
 - Non-official pynvml is no longer allowed (#153)
 - Internal refactoring for display and formatting
+- Add a registry-based accelerator backend interface for NVIDIA, AMD, and Ascend.
 - Improve CI and release workflow
 - Add test coverage for Python 3.13 through 3.15 prerelease builds.
 

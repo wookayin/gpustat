@@ -8,6 +8,7 @@ from contextlib import suppress
 from blessed import Terminal
 
 from gpustat import __version__
+from gpustat.backends import backend_names
 from gpustat.core import GPUStatCollection
 
 
@@ -142,7 +143,7 @@ def main(*argv):
                               help='Suppress colored output')
     parser.add_argument('--id', help='Target a specific GPU (index).')
     parser.add_argument(
-        '--backend', choices=('auto', 'nvidia', 'amd', 'ascend'),
+        '--backend', choices=backend_names(include_auto=True),
         default='auto',
         help='Device query backend (default: auto)'
     )

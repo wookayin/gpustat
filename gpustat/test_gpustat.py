@@ -676,6 +676,7 @@ class TestGPUStat(object):
         assert '[2] GeForce RTX 2' in line, str(line)
         assert '99999' not in line
         assert '(Not Supported)' not in line
+        assert gpustats[2].processes == []
 
     @pytest.mark.parametrize("scenario_failing_one_gpu", [
         pynvml.NVMLError_GpuIsLost,
