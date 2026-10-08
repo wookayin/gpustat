@@ -118,6 +118,13 @@ stats = gpustat.new_query(backend="amd")
 stats = gpustat.new_query(backend="ascend", id=[0, 1])
 ```
 
+### Adding an accelerator backend
+
+Built-in backends implement the shared NVML-compatible adapter used by
+`gpustat/core.py` and are listed in `gpustat/backends.py`. To add another
+accelerator, provide an adapter module plus one loader and detector entry. See
+`gpustat/rocml.py` and `gpustat/ascend.py` for examples.
+
 
 [pypi_gpustat]: https://pypi.org/project/gpustat/
 [pypi_pynvml]: https://pypi.org/project/nvidia-ml-py/#history

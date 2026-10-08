@@ -30,25 +30,11 @@ from io import StringIO
 import psutil
 from blessed import Terminal
 
-from gpustat import ascend
-from gpustat import nvml
 from gpustat import util
-from gpustat.nvml import pynvml as N
-from gpustat.nvml import check_driver_nvml_version
+from gpustat.backends import detect_backend, get_backend
 
 NOT_SUPPORTED = 'Not Supported'
 MB = 1024 * 1024
-SUPPORTED_BACKENDS = ('auto', 'nvidia', 'amd', 'ascend')
-
-
-def _get_nvml_backend(backend):
-    """Return the NVML-compatible implementation for a GPU backend."""
-    if backend == 'nvidia':
-        return nvml, N, check_driver_nvml_version
-    if backend == 'amd':
-        from gpustat import rocml
-        return rocml, rocml, rocml.check_driver_nvml_version
-    raise ValueError("Backend is not NVML-compatible: {}".format(backend))
 
 # Integrated NVIDIA devices that share memory with the host (unified memory).
 UNIFIED_MEMORY_DEVICE_PATTERN = re.compile(
@@ -89,7 +75,7 @@ IS_WINDOWS = 'windows' in platform.platform().lower()
 
 
 # Types
-NVMLHandle = Any  # N.c_nvmlDevice_t
+NVMLHandle = Any
 Megabytes = int
 Celcius = int
 Percentage = int
@@ -112,6 +98,7 @@ GPUInfo = TypedDict('GPUInfo', {
     'memory.total': Optional[Megabytes],  # Can be None for unified memory systems
     'memory.unified': bool,  # True if using unified/shared memory (e.g., DGX Spark)
     'processes': Optional[List[ProcessInfo]],
+    'health': Optional[str],
 }, total=False) if TYPE_CHECKING else dict  # type: ignore
 
 
@@ -506,61 +493,20 @@ class GPUStatCollection(Sequence[GPUStat]):
     def new_query(debug=False, id=None,
                   backend='auto') -> 'GPUStatCollection':
         """Query accelerator information using the selected backend."""
-        if backend not in SUPPORTED_BACKENDS:
-            raise ValueError("Unknown backend: {}".format(backend))
-
-        if backend == 'auto':
-            backend = GPUStatCollection._detect_backend()
-        if backend == 'ascend':
-            return GPUStatCollection._new_query_ascend(id=id)
-        return GPUStatCollection._new_query_nvml(
-            backend=backend, debug=debug, id=id)
+        selected_backend = detect_backend() if backend == 'auto' \
+            else get_backend(backend)
+        return GPUStatCollection._new_query_backend(
+            backend=selected_backend, debug=debug, id=id)
 
     @staticmethod
-    def _detect_backend():
-        """Detect a usable backend, preserving AMD-first behavior."""
-        if util.has_AMD():
-            return 'amd'
+    def _new_query_backend(
+            backend, debug=False, id=None) -> 'GPUStatCollection':
+        """Query a registered accelerator backend."""
+        N_backend = backend.api
 
-        nvidia_error = None
-        try:
-            nvml.ensure_initialized()
-            if N.nvmlDeviceGetCount() > 0:
-                return 'nvidia'
-        except N.NVMLError as error:
-            nvidia_error = error
-
-        if ascend.is_available():
-            return 'ascend'
-        if nvidia_error is not None:
-            raise nvidia_error
-        return 'nvidia'
-
-    @staticmethod
-    def _new_query_ascend(id=None) -> 'GPUStatCollection':
-        if id is None:
-            device_ids = None
-        elif isinstance(id, str):
-            device_ids = [int(i) for i in id.split(',')]
-        elif isinstance(id, Sequence):
-            device_ids = [int(i) for i in id]
-        else:
-            raise TypeError(f"Unknown id: {id}")
-
-        device_entries, driver_version = ascend.query(device_ids)
-        return GPUStatCollection(
-            [GPUStat(entry) for entry in device_entries],
-            driver_version=driver_version,
-        )
-
-    @staticmethod
-    def _new_query_nvml(backend, debug=False, id=None) -> 'GPUStatCollection':
-        """Query a backend that implements the NVML-compatible interface."""
-        nvml_backend, N_backend, check_driver_version = \
-            _get_nvml_backend(backend)
-
-        nvml_backend.ensure_initialized()
+        backend.ensure_initialized()
         log = util.DebugHelper()
+        processes_to_resample = []
 
         def _decode(b: Union[str, bytes]) -> str:
             if isinstance(b, bytes):
@@ -581,10 +527,32 @@ class GPUStatCollection(Sequence[GPUStat]):
 
             def get_process_info(nv_process) -> ProcessInfo:
                 """Get the process information of specific pid"""
-                process = {}
-                if nv_process.pid not in GPUStatCollection.global_processes:
-                    GPUStatCollection.global_processes[nv_process.pid] = \
-                        psutil.Process(pid=nv_process.pid)
+                backend_command = getattr(nv_process, 'command', None)
+                fallback_command = backend_command or '?'
+                usedmem = nv_process.usedGpuMemory // MB if \
+                    nv_process.usedGpuMemory else None
+                process = {
+                    'pid': nv_process.pid,
+                    'gpu_memory_usage': usedmem,
+                }
+
+                try:
+                    if nv_process.pid not in GPUStatCollection.global_processes:
+                        GPUStatCollection.global_processes[nv_process.pid] = \
+                            psutil.Process(pid=nv_process.pid)
+                except (psutil.AccessDenied, psutil.NoSuchProcess,
+                        FileNotFoundError):
+                    if backend_command is None:
+                        raise
+                    process.update(
+                        username='?',
+                        command=fallback_command,
+                        full_command=[fallback_command],
+                        cpu_percent=0.0,
+                        cpu_memory_usage=0.0,
+                    )
+                    return process
+
                 ps_process: psutil.Process = GPUStatCollection.global_processes[nv_process.pid]
 
                 # TODO: ps_process is being cached, but the dict below is not.
@@ -594,24 +562,17 @@ class GPUStatCollection(Sequence[GPUStat]):
                 _cmdline = safepcall(ps_process.cmdline, [])
                 if not _cmdline:
                     # sometimes, zombie or unknown (e.g. [kworker/8:2H])
-                    process['command'] = '?'
-                    process['full_command'] = ['?']
+                    process['command'] = fallback_command
+                    process['full_command'] = [fallback_command]
                 else:
                     process['command'] = os.path.basename(_cmdline[0])
                     process['full_command'] = _cmdline
-                # Bytes to MBytes
-                # if drivers are not TTC this will be None.
-                usedmem = nv_process.usedGpuMemory // MB if \
-                          nv_process.usedGpuMemory else None
-                process['gpu_memory_usage'] = usedmem
 
                 process['cpu_percent'] = safepcall(ps_process.cpu_percent, 0.0)
                 process['cpu_memory_usage'] = safepcall(
                     lambda: round((ps_process.memory_percent() / 100.0) *
                                   psutil.virtual_memory().total),
                     0.0)
-
-                process['pid'] = nv_process.pid
                 return process
 
             def safenvml(fn):
@@ -717,13 +678,12 @@ class GPUStatCollection(Sequence[GPUStat]):
                         # FileNotFoundError is thrown in different situations.
                         pass
 
-                # TODO: Do not block if full process info is not requested
-                time.sleep(0.1)
-                for process in processes:
-                    pid = process['pid']
-                    cache_process: psutil.Process = GPUStatCollection.global_processes[pid]
-                    process['cpu_percent'] = safepcall(cache_process.cpu_percent, 0)
+                processes_to_resample.extend(processes)
             gpu_info['processes'] = processes
+
+            if hasattr(N_backend, 'nvmlDeviceGetHealth'):
+                gpu_info['health'] = safenvml(
+                    N_backend.nvmlDeviceGetHealth)(handle)
 
             # For unified memory systems, calculate used memory from process list
             # since nvmlDeviceGetMemoryInfo is not supported. An empty list
@@ -735,7 +695,6 @@ class GPUStatCollection(Sequence[GPUStat]):
                 )
                 gpu_info['memory.used'] = total_process_mem
 
-            GPUStatCollection.clean_processes()
             return gpu_info
 
         # 1. get the list of gpu and status
@@ -768,12 +727,35 @@ class GPUStatCollection(Sequence[GPUStat]):
                 log.add_exception("GPU %d" % index, gpu_stat.exception)
             gpu_list.append(gpu_stat)
 
+        if processes_to_resample:
+            time.sleep(0.1)
+            cpu_percent_by_pid = {}
+            for process in processes_to_resample:
+                pid = process['pid']
+                if pid not in cpu_percent_by_pid:
+                    cache_process = GPUStatCollection.global_processes.get(pid)
+                    if cache_process is None:
+                        cpu_percent_by_pid[pid] = process['cpu_percent']
+                    else:
+                        cpu_percent_by_pid[pid] = util.safecall(
+                            cache_process.cpu_percent,
+                            error_value=0,
+                            exc_types=(
+                                psutil.AccessDenied,
+                                psutil.NoSuchProcess,
+                                FileNotFoundError,
+                            ),
+                        )
+                process['cpu_percent'] = cpu_percent_by_pid[pid]
+
+        GPUStatCollection.clean_processes()
+
         # 2. additional info (driver version, etc).
         # TODO: check this only once, no need to call multiple times
         try:
             driver_version = _decode(
                 N_backend.nvmlSystemGetDriverVersion())
-            check_driver_version(driver_version)
+            backend.check_driver_version(driver_version)
         except N_backend.NVMLError as e:
             log.add_exception("driver_version", e)
             driver_version = None    # N/A
@@ -907,19 +889,13 @@ def new_query(backend='auto', id=None) -> GPUStatCollection:
 
 def gpu_count(backend='auto') -> int:
     '''Return the number of available accelerators in the system.'''
-    if backend not in SUPPORTED_BACKENDS:
-        raise ValueError("Unknown backend: {}".format(backend))
-
     try:
-        if backend == 'auto':
-            backend = GPUStatCollection._detect_backend()
-        if backend == 'ascend':
-            devices, _ = ascend.query(enrich_processes=False)
-            return len(devices)
-
-        nvml_backend, N_backend, _ = _get_nvml_backend(backend)
-        nvml_backend.ensure_initialized()
-        return N_backend.nvmlDeviceGetCount()
+        selected_backend = detect_backend() if backend == 'auto' \
+            else get_backend(backend)
+        selected_backend.ensure_initialized()
+        return selected_backend.device_count()
+    except ValueError:
+        raise
     except Exception:
         return 0  # fallback
 
