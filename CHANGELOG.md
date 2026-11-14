@@ -6,6 +6,7 @@ Changelog for `gpustat`
 - Non-official pynvml is no longer allowed (#153)
 - Internal refactoring for display and formatting
 - Add a registry-based accelerator backend interface for NVIDIA, AMD, and Ascend.
+- Add experimental Apple Silicon GPU support on macOS: utilization, memory, temperature, and GPU processes without root privileges (#187).
 - Improve CI and release workflow
 - Add test coverage for Python 3.13 through 3.15 prerelease builds.
 

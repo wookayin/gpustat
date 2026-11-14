@@ -403,9 +403,10 @@ class GPUStat:
 
             if show_pid:
                 r += ("/%s" % _repr(p['pid'], '--'))
-            r += '({CMemP}{}M{C0})'.format(
-                _repr(p['gpu_memory_usage'], '?'), **colors
-            )
+            if 'gpu_memory_usage' in p:
+                r += '({CMemP}{}M{C0})'.format(
+                    _repr(p['gpu_memory_usage'], '?'), **colors
+                )
             return r
 
         def full_process_info(p: ProcessInfo):
@@ -529,12 +530,13 @@ class GPUStatCollection(Sequence[GPUStat]):
                 """Get the process information of specific pid"""
                 backend_command = getattr(nv_process, 'command', None)
                 fallback_command = backend_command or '?'
-                usedmem = nv_process.usedGpuMemory // MB if \
-                    nv_process.usedGpuMemory else None
-                process = {
-                    'pid': nv_process.pid,
-                    'gpu_memory_usage': usedmem,
-                }
+                process = {'pid': nv_process.pid}
+                # Backends that cannot attribute GPU memory to processes
+                # (e.g. Apple Silicon) omit usedGpuMemory entirely.
+                if hasattr(nv_process, 'usedGpuMemory'):
+                    process['gpu_memory_usage'] = \
+                        nv_process.usedGpuMemory // MB \
+                        if nv_process.usedGpuMemory else None
 
                 try:
                     if nv_process.pid not in GPUStatCollection.global_processes:
@@ -619,7 +621,10 @@ class GPUStatCollection(Sequence[GPUStat]):
                     gpu_info['memory.total'] = \
                         psutil.virtual_memory().total // MB
 
-            gpu_info['memory.unified'] = is_unified_memory
+            # Backends for integrated GPUs (e.g. Apple Silicon) report memory
+            # directly but can declare that it is shared with the host.
+            gpu_info['memory.unified'] = is_unified_memory or bool(
+                getattr(N_backend, 'UNIFIED_MEMORY', False))
 
             # GPU utilization
             utilization = safenvml(

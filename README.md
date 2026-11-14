@@ -13,6 +13,7 @@ Supported accelerators:
 * NVIDIA GPUs through NVML (`nvidia-ml-py`)
 * AMD GPUs through ROCm SMI (`rocmi`)
 * Huawei Ascend 910B NPUs through `npu-smi`
+* Apple Silicon GPUs on macOS through `ioreg` and the SMC (experimental)
 
 Self-Promotion: A web interface of `gpustat` is available (in alpha)! Check out [gpustat-web][gpustat-web].
 
@@ -76,7 +77,7 @@ Options (Please see `gpustat --help` for more details):
 * `-P`, `--show-power` : Display GPU power usage and/or limit (`draw` or `draw,limit`)
 * `-a`, `--show-all`   : Display all gpu properties above
 * `--id`              : Target and query specific GPUs only with the specified indices (e.g. `--id 0,1,2`)
-* `--backend`         : Select `auto`, `nvidia`, `amd`, or `ascend` (default: `auto`)
+* `--backend`         : Select `auto`, `nvidia`, `amd`, `ascend`, or `apple` (default: `auto`)
 * `--no-processes`    : Do not display process information (user, memory) ([#133][gh-issue-133])
 * `--watch`, `-i`, `--interval`   : Run in watch mode (equivalent to `watch gpustat`) if given. Denotes interval between updates.
 * `--json`             : JSON Output ([#10][gh-issue-10])
@@ -87,6 +88,7 @@ Options (Please see `gpustat --help` for more details):
 
 - Try `gpustat --debug` if something goes wrong.
 - Ascend 910B support requires the driver-provided `npu-smi` command in `PATH`.
+- Apple Silicon support is experimental. See [Apple Silicon](#apple-silicon) below.
 - To periodically watch, try `gpustat --watch` or `gpustat -i` ([#41][gh-issue-41]).
     - For older versions, one may use `watch --color -n1.0 gpustat --color`.
 - Running `nvidia-smi daemon` (root privilege required) will make querying GPUs much **faster** and use less CPU ([#54][gh-issue-54]).
@@ -96,6 +98,30 @@ Options (Please see `gpustat --help` for more details):
   configure the `CUDA_DEVICE_ORDER` environment variable to `PCI_BUS_ID`
   (before setting `CUDA_VISIBLE_DEVICES` for your CUDA program):
   `export CUDA_DEVICE_ORDER=PCI_BUS_ID`.
+
+
+### Apple Silicon
+
+On Apple Silicon Macs, `gpustat` reads the built-in GPU without root privileges
+or extra tools:
+
+| Field | Source |
+|---|---|
+| name, utilization | `model` and `Device Utilization %` of the GPU driver entry in `ioreg` |
+| memory | used: `In use system memory` of the GPU driver; total: host RAM (unified memory, so `memory.unified` is `true` in the JSON output) |
+| temperature | average of the SMC `Tg*` GPU sensors (undocumented; shown as `??` if unavailable) |
+| processes | processes that submitted GPU work in the last 2 seconds |
+
+macOS does not attribute GPU memory to processes, nor report which process
+owns in-flight GPU work. Processes are therefore listed without memory, and a
+process is hidden while it is idle or waiting on a single GPU command that
+runs longer than 2 seconds, even if the GPU is at 100%. Power, fan speed, and
+encoder/decoder utilization are unsupported.
+
+```
+$ gpustat -cup
+[0] Apple M4 Pro | 77°C,  99 % |  2098 / 24576 MB | root:WindowServer/404 user:ghostty/58728 user:python3/78358
+```
 
 
 ### Python API
@@ -116,6 +142,7 @@ The backend is detected automatically, or can be selected explicitly:
 ```python
 stats = gpustat.new_query(backend="amd")
 stats = gpustat.new_query(backend="ascend", id=[0, 1])
+stats = gpustat.new_query(backend="apple")
 ```
 
 ### Adding an accelerator backend
@@ -123,7 +150,7 @@ stats = gpustat.new_query(backend="ascend", id=[0, 1])
 Built-in backends implement the shared NVML-compatible adapter used by
 `gpustat/core.py` and are listed in `gpustat/backends.py`. To add another
 accelerator, provide an adapter module plus one loader and detector entry. See
-`gpustat/rocml.py` and `gpustat/ascend.py` for examples.
+`gpustat/rocml.py`, `gpustat/ascend.py`, and `gpustat/apple.py` for examples.
 
 
 [pypi_gpustat]: https://pypi.org/project/gpustat/
