@@ -47,7 +47,7 @@ pip install git+https://github.com/wookayin/gpustat.git@master
 
 - gpustat 1.2+: Requires `nvidia-ml-py >= 12.535.108` ([#161][gh-issue-161])
 - gpustat 1.0+: Requires NVIDIA Driver **450.00** or higher and `nvidia-ml-py >= 11.450.129`.
-- If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install gpustat<1.0`). See [#107][gh-issue-107] for more details.
+- If your NVIDIA driver is too old, you can use older `gpustat` versions (`pip install 'gpustat<1.0'`). See [#107][gh-issue-107] for more details.
 
 
 ### Python requirements
