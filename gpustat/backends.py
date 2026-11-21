@@ -92,8 +92,19 @@ def _detect_ascend():
     return ascend.is_available()
 
 
+def _load_apple():
+    from gpustat import apple
+    return Backend('apple', apple, apple, apple.check_driver_nvml_version)
+
+
+def _detect_apple():
+    from gpustat import apple
+    return apple.is_available() and bool(apple.query())
+
+
 _BACKENDS = (
     ('amd', _load_amd, _detect_amd),
     ('nvidia', _load_nvidia, _detect_nvidia),
     ('ascend', _load_ascend, _detect_ascend),
+    ('apple', _load_apple, _detect_apple),
 )
